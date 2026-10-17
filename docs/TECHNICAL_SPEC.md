@@ -1,12 +1,12 @@
 # MVP technical specification
 
-This is the proposed implementation contract to let four people work in parallel. Confirm it at kickoff, then change it in one coordinated PR when necessary.
+This is the implemented contract for the four-person work plan. Coordinate schema or API changes with both the backend and frontend owners.
 
 ## Core design
 
 The browser owns a simulated minute and requests a snapshot for that minute. The Python API reads a versioned, synthetic fixture and derives all facts from events at or before that minute. Insight rules are deterministic. AI receives a compact object of verified facts and writes wording only. The UI displays canonical evidence from the API beside the wording.
 
-Recommended initial stack: React + TypeScript frontend; Python 3 API (FastAPI is a reasonable local choice); JSON fixture; pytest for backend behavior; frontend build/type check. Choose exact deployment after the Oct 18 access and cost check. Azure Static Web Apps can host the React frontend; its documented API options include managed Azure Functions or an existing API. Do not assume a FastAPI app fits the managed Functions option without a deployment spike.
+Implemented stack: React + TypeScript frontend; FastAPI backend; JSON fixture; pytest backend checks; Vite build and TypeScript check. A multi-stage Docker image serves the React build and API together. Azure Container Apps is the documented deployment target, pending account access and a cost decision.
 
 ## Data contract (v1)
 
@@ -47,14 +47,14 @@ Use one stable insight ID per triggering moment/window. The snapshot returns ins
 
 ## API contract
 
-Phases 1-2 implement the health and snapshot routes. The explanation and recap routes are reserved for Phase 4, after verified evidence and the match UI exist.
+All four routes below are implemented. The explanation and recap endpoints return canonical facts with either screened Foundry wording or a deterministic template.
 
 | Method/path | Purpose | Important response fields |
 |---|---|---|
 | `GET /api/health` | Public health check | `status`, `fixture_version` |
 | `GET /api/matches/demo?minute=31` | Snapshot at minute 0-90 | `synthetic: true`, `minute`, teams, score, stats, `recent_events`, insight summaries |
-| `GET /api/matches/demo/insights/{id}?mode=fan` (Phase 4) | One explained insight | `insight_id`, `mode`, `text`, `evidence`, `source` (`foundry` or `template`) |
-| `GET /api/matches/demo/recap?mode=fan` (Phase 4) | Full-time recap | final score/stats, selected moment IDs, recap text, source |
+| `GET /api/matches/demo/insights/{id}?mode=fan` | One explained insight | `insight_id`, `mode`, `text`, `evidence`, `source` (`foundry` or `template`) |
+| `GET /api/matches/demo/recap?mode=fan` | Full-time recap | final score/stats, selected moment IDs, recap text, source |
 
 Reject invalid minutes and modes with a clear 4xx response. The browser should not call the model for every clock tick: request explanation only when a new insight appears or a card is opened, then cache by fixture version, insight ID, and mode. Cache recap by fixture version and mode.
 
@@ -74,7 +74,7 @@ Reject invalid minutes and modes with a clear 4xx response. The browser should n
 }
 ```
 
-The example values above are illustrative. The checked-in [minute-29 snapshot](samples/snapshot-minute-29.json) is generated from the actual fixture and is the current handoff example for the Phase 3 UI.
+The example values above are illustrative. The checked-in [minute-29 snapshot](samples/snapshot-minute-29.json) is generated from the actual fixture and is a regression example for UI integration.
 
 ## Explanation contract
 
@@ -83,7 +83,7 @@ Input to the explanation adapter is `{insight_type, minute, mode, verified_facts
 - Fan: one short sentence, everyday language; avoid unsupported causal claims.
 - Analyst: one or two sentences, explicit comparison/window where the evidence supports it.
 - Give the model no raw unvalidated feed and no instruction to infer unseen tactics or emotions.
-- Check generated text before display: any explicit number, player, team, or event reference must match the supplied facts. On failure or timeout, use a deterministic template.
+- Check generated text before display. The current conservative validator rejects numeric claims, unsupported names or event references, causal/comparative claims, and text about a different insight metric. Verified numbers remain in canonical evidence and deterministic templates. On failure or timeout, use a template.
 - If there are too few observations, say the evidence is limited. Avoid “momentum” as a fact unless the rule defines it operationally.
 - Recap uses final facts and selected insight evidence only; no invented match narrative.
 
@@ -101,4 +101,4 @@ Input to the explanation adapter is `{insight_type, minute, mode, verified_facts
 
 ## Microsoft integration note
 
-Microsoft's [current Foundry quickstart](https://learn.microsoft.com/azure/ai-foundry/quickstarts/get-started-code) supports calling a model from Python through a project client, subject to an actual project/model deployment and credentials. Its exact SDK/model choice should be confirmed during the access spike. [Azure Static Web Apps](https://learn.microsoft.com/azure/static-web-apps/overview) documents React hosting, and its [API options](https://learn.microsoft.com/en-us/azure/static-web-apps/apis-overview) include managed Azure Functions and linked existing APIs. Record the service(s) actually used in the final README and pitch; do not claim a service just because it appears in this plan.
+The backend has an optional adapter for the [Foundry Responses API](https://learn.microsoft.com/azure/foundry/openai/how-to/responses?tabs=rest), configured with `FOUNDRY_RESPONSES_URL`, `FOUNDRY_MODEL`, and `FOUNDRY_API_KEY`. The adapter is tested with an injected HTTP response but still needs a real deployment test. The container is prepared for [Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/get-started-existing-container-image); no Azure service is claimed as live until deployed and checked.

@@ -1,81 +1,205 @@
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 
-const plannedFeatures = [
-  {
-    title: 'Replay a fictional match',
-    description: 'Follow a fixed synthetic fixture at your own pace.',
-  },
-  {
-    title: 'Inspect the evidence',
-    description: 'Trace each insight back to verified events and statistics.',
-  },
-  {
-    title: 'Choose your level of detail',
-    description: 'Read the same match facts in Fan or Analyst language.',
-  },
-]
+type Mode = 'fan' | 'analyst'
+type Pair = Record<string, number>
+type Team = { id: string; name: string }
+type Event = { id: string; minute: number; second: number; type: string; team_id: string; player_id: string | null; outcome: string | null; related_event_id: string | null }
+type Insight = { id: string; type: string; minute: number; team_id: string; evidence_event_ids: string[]; evidence: Record<string, unknown> }
+type Stats = { shots: Pair; passes: Pair; possession_percent: Pair }
+type Snapshot = { match_id: string; fixture_version: string; synthetic: boolean; minute: number; teams: Team[]; score: Pair; stats: Stats; recent_events: Event[]; insights: Insight[] }
+type Explanation = { insight_id: string; mode: Mode; text: string; evidence: Record<string, unknown>; source: 'foundry' | 'template' }
+type Recap = { mode: Mode; text: string; final_score: Pair; stats: Stats; moment_ids: string[]; source: 'foundry' | 'template' }
 
-function App() {
-  return (
-    <div className="site-shell">
-      <header className="site-header">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true">M</span>
-          <span>MatchLens</span>
-        </div>
-        <span className="synthetic-label">Synthetic match data</span>
-      </header>
-
-      <main>
-        <section className="intro" aria-labelledby="page-title">
-          <div className="intro-copy">
-            <p className="eyebrow">Phase 1 · Frontend foundation</p>
-            <h1 id="page-title">A clearer view of a fictional match.</h1>
-            <p className="lead">
-              MatchLens will turn a replayed synthetic fixture into match facts
-              and evidence-backed explanations for fans and analysts.
-            </p>
-          </div>
-
-          <aside className="status-card" aria-labelledby="status-heading">
-            <span className="status-indicator" aria-hidden="true" />
-            <p className="card-kicker">Current build</p>
-            <h2 id="status-heading">Frontend shell ready</h2>
-            <p>
-              The synthetic fixture engine and snapshot API are ready. This shell
-              does not display match data yet; replay controls and explanations
-              arrive in later phases.
-            </p>
-          </aside>
-        </section>
-
-        <section className="features" aria-labelledby="features-heading">
-          <div className="section-heading">
-            <p className="eyebrow">The planned experience</p>
-            <h2 id="features-heading">What comes next</h2>
-          </div>
-          <ol className="feature-list">
-            {plannedFeatures.map((feature, index) => (
-              <li key={feature.title}>
-                <span className="feature-number" aria-hidden="true">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                <div>
-                  <h3>{feature.title}</h3>
-                  <p>{feature.description}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </section>
-      </main>
-
-      <footer className="site-footer">
-        <span>MatchLens prototype</span>
-        <span>Fictional teams, players, and events only</span>
-      </footer>
-    </div>
-  )
+const base = '/api/matches/demo'
+const speeds = [1, 2, 4] as const
+async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(path, { signal })
+  if (!response.ok) throw new Error('Request failed (' + response.status + ')')
+  return response.json() as Promise<T>
+}
+function isSnapshot(value: Snapshot): boolean {
+  return value.synthetic === true && Array.isArray(value.teams) && value.teams.length === 2 &&
+    Array.isArray(value.recent_events) && Array.isArray(value.insights) &&
+    typeof value.score === 'object' && typeof value.stats === 'object'
+}
+function title(insight: Insight) {
+  return insight.type === 'goal' ? 'Goal confirmed' : insight.type === 'shot_surge' ? 'Shot surge' : 'Possession swing'
+}
+function source(sourceValue: string) {
+  return sourceValue === 'foundry' ? 'AI explanation' : 'Template explanation'
+}
+function eventTitle(event: Event) {
+  if (event.type === 'possession_change') return 'Possession changed'
+  if (event.type === 'goal') return 'Goal'
+  return event.type.charAt(0).toUpperCase() + event.type.slice(1) + (event.outcome ? ' ' + event.outcome : '')
+}
+function windowText(value: unknown) {
+  return Array.isArray(value) && value.length === 2 ? value[0] + '–' + value[1] : '—'
+}
+function Evidence({ insight, teams }: { insight: Insight; teams: Team[] }) {
+  const evidence = insight.evidence
+  const focus = teams.find(team => team.id === insight.team_id)
+  const other = teams.find(team => team.id !== insight.team_id)
+  const facts: string[] = []
+  if (insight.type === 'goal') {
+    const before = evidence.score_before as Pair | undefined
+    const after = evidence.score_after as Pair | undefined
+    if (before && after && focus && other) facts.push('Score: ' + before[focus.id] + '–' + before[other.id] + ' → ' + after[focus.id] + '–' + after[other.id])
+    if (typeof evidence.player_id === 'string') facts.push('Scorer ID: ' + evidence.player_id)
+  } else if (insight.type === 'shot_surge') {
+    const counts = evidence.shot_counts as Pair | undefined
+    facts.push('Minutes ' + evidence.window_start_minute_inclusive + '–' + evidence.window_end_minute_inclusive)
+    if (counts && focus && other) facts.push('Shots: ' + focus.name + ' ' + counts[focus.id] + ', ' + other.name + ' ' + counts[other.id])
+  } else {
+    const previous = evidence.previous_possession_percent as Pair | undefined
+    const current = evidence.current_possession_percent as Pair | undefined
+    facts.push('Minutes ' + windowText(evidence.previous_window) + ' → ' + windowText(evidence.current_window))
+    if (previous && current && focus) facts.push(focus.name + ' possession: ' + previous[focus.id] + '% → ' + current[focus.id] + '%')
+    if (typeof evidence.change_points === 'number') facts.push('Change: ' + evidence.change_points + ' percentage points')
+  }
+  return <div className="evidence" aria-label="Verified evidence">
+    <strong>Verified evidence</strong>
+    <ul>{facts.map(fact => <li key={fact}>{fact}</li>)}</ul>
+    <p>Event IDs: {insight.evidence_event_ids.join(', ') || 'None supplied'}</p>
+  </div>
 }
 
+function App() {
+  const [minute, setMinute] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [speed, setSpeed] = useState<(typeof speeds)[number]>(1)
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
+  const [snapshotLoading, setSnapshotLoading] = useState(true)
+  const [snapshotError, setSnapshotError] = useState<string | null>(null)
+  const [snapshotAttempt, setSnapshotAttempt] = useState(0)
+  const [mode, setMode] = useState<Mode>('fan')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [explanation, setExplanation] = useState<Explanation | null>(null)
+  const [explanationLoading, setExplanationLoading] = useState(false)
+  const [explanationError, setExplanationError] = useState<string | null>(null)
+  const [explanationAttempt, setExplanationAttempt] = useState(0)
+  const [recap, setRecap] = useState<Recap | null>(null)
+  const [recapLoading, setRecapLoading] = useState(false)
+  const [recapError, setRecapError] = useState<string | null>(null)
+  const [recapAttempt, setRecapAttempt] = useState(0)
+  const snapshots = useRef(new Map<number, Snapshot>())
+  const explanations = useRef(new Map<string, Explanation>())
+  const recaps = useRef(new Map<string, Recap>())
+
+  useEffect(() => {
+    if (!playing) return
+    const timer = window.setInterval(() => setMinute(current => Math.min(90, current + 1)), 2000 / speed)
+    return () => window.clearInterval(timer)
+  }, [playing, speed])
+  useEffect(() => { if (minute === 90) setPlaying(false) }, [minute])
+
+  useEffect(() => {
+    const cached = snapshots.current.get(minute)
+    if (cached) { setSnapshot(cached); setSnapshotError(null); setSnapshotLoading(false); return }
+    const controller = new AbortController()
+    setSnapshotLoading(true)
+    setSnapshotError(null)
+    request<Snapshot>(base + '?minute=' + minute, controller.signal).then(data => {
+      if (!isSnapshot(data) || data.minute !== minute) throw new Error('Invalid match snapshot')
+      snapshots.current.set(minute, data)
+      setSnapshot(data)
+      setSnapshotLoading(false)
+    }).catch((error: unknown) => {
+      if (controller.signal.aborted) return
+      setPlaying(false)
+      setSnapshotError(error instanceof Error ? error.message : 'Match data could not be loaded')
+      setSnapshotLoading(false)
+    })
+    return () => controller.abort()
+  }, [minute, snapshotAttempt])
+
+  const current = snapshot?.minute === minute ? snapshot : null
+  const selected = current?.insights.find(insight => insight.id === selectedId)
+  const version = current?.fixture_version
+  useEffect(() => {
+    if (!selected || !version) { setExplanation(null); setExplanationLoading(false); return }
+    const key = version + ':' + selected.id + ':' + mode
+    const cached = explanations.current.get(key)
+    if (cached) { setExplanation(cached); setExplanationError(null); setExplanationLoading(false); return }
+    const controller = new AbortController()
+    setExplanation(null)
+    setExplanationError(null)
+    setExplanationLoading(true)
+    request<Explanation>(base + '/insights/' + encodeURIComponent(selected.id) + '?mode=' + mode, controller.signal).then(data => {
+      if (data.insight_id !== selected.id || data.mode !== mode || !data.text || !data.evidence) throw new Error('Invalid insight explanation')
+      explanations.current.set(key, data)
+      setExplanation(data)
+      setExplanationLoading(false)
+    }).catch((error: unknown) => {
+      if (controller.signal.aborted) return
+      setExplanationError(error instanceof Error ? error.message : 'Explanation could not be loaded')
+      setExplanationLoading(false)
+    })
+    return () => controller.abort()
+  }, [selected?.id, version, mode, explanationAttempt])
+
+  useEffect(() => {
+    if (minute !== 90 || !version) { setRecap(null); return }
+    const key = version + ':' + mode
+    const cached = recaps.current.get(key)
+    if (cached) { setRecap(cached); setRecapError(null); setRecapLoading(false); return }
+    const controller = new AbortController()
+    setRecap(null)
+    setRecapError(null)
+    setRecapLoading(true)
+    request<Recap>(base + '/recap?mode=' + mode, controller.signal).then(data => {
+      if (data.mode !== mode || !data.text || !data.final_score || !data.stats) throw new Error('Invalid full-time recap')
+      recaps.current.set(key, data)
+      setRecap(data)
+      setRecapLoading(false)
+    }).catch((error: unknown) => {
+      if (controller.signal.aborted) return
+      setRecapError(error instanceof Error ? error.message : 'Recap could not be loaded')
+      setRecapLoading(false)
+    })
+    return () => controller.abort()
+  }, [minute, version, mode, recapAttempt])
+
+  function seek(target: number) { setPlaying(false); setMinute(Math.max(0, Math.min(90, target))) }
+  const teams = current?.teams ?? []
+  const home = teams[0]
+  const away = teams[1]
+  const insightList = [...(current?.insights ?? [])].reverse()
+  const eventList = [...(current?.recent_events ?? [])].reverse()
+  return <div className="app-shell">
+    <header className="site-header"><a href="#match" className="brand"><span className="brand-symbol" aria-hidden="true">◎</span>MatchLens</a><span className="synthetic-label">Synthetic match data</span></header>
+    <main id="match" className="dashboard">
+      <section className="match-hero" aria-labelledby="match-title">
+        <div className="hero-top"><p id="match-title">Fictional match replay</p><span>{current ? 'Fixture ' + current.fixture_version : 'Demo fixture'}</span></div>
+        {current ? <div className="scoreboard" aria-label={home.name + ' ' + current.score[home.id] + ', ' + away.name + ' ' + current.score[away.id]}>
+          <div className="team"><span className="crest home-crest" aria-hidden="true">N</span><h1>{home.name}</h1><small>Home</small></div>
+          <div className="score-center"><div className="score"><span>{current.score[home.id]}</span><i>:</i><span>{current.score[away.id]}</span></div><span className="clock">{minute === 90 ? 'Full time' : String(minute).padStart(2, '0') + ':00'}</span></div>
+          <div className="team"><span className="crest away-crest" aria-hidden="true">C</span><h1>{away.name}</h1><small>Away</small></div>
+        </div> : <div className="hero-state" role={snapshotError ? 'alert' : 'status'}><h1>{snapshotError ? 'Match data unavailable' : 'Loading match'}</h1><p>{snapshotError ? snapshotError + '. Check that the API is running, then retry.' : 'Getting minute ' + minute + '.'}</p>{snapshotError && <button onClick={() => setSnapshotAttempt(n => n + 1)}>Retry match data</button>}</div>}
+        <div className="pitch-rule" aria-hidden="true" />
+      </section>
+      <section className="replay-panel" aria-labelledby="replay-title"><div className="replay-head"><div><h2 id="replay-title">Replay control</h2><p>Jump to any match minute</p></div><strong>{minute}' <small>/ 90'</small></strong></div>
+        <label htmlFor="minute-slider" className="sr-only">Match minute</label><input id="minute-slider" className="minute-slider" type="range" min="0" max="90" value={minute} onChange={event => seek(Number(event.target.value))} style={{ '--progress': minute / 90 * 100 + '%' } as React.CSSProperties} />
+        <div className="timeline-labels"><span>Kick off</span><span>Half time</span><span>Full time</span></div>
+        <div className="transport"><div className="transport-buttons"><button className="primary-button" disabled={snapshotLoading || !!snapshotError} onClick={() => minute === 90 ? seek(0) : setPlaying(value => !value)} aria-label={minute === 90 ? 'Replay from start' : playing ? 'Pause replay' : 'Play replay'}>{minute === 90 ? '↺ Replay' : playing ? 'Ⅱ Pause' : '▶ Play'}</button><button onClick={() => seek(0)} disabled={minute === 0}>Reset</button><button onClick={() => seek(90)} disabled={minute === 90}>Jump to full time</button></div><div className="speed-group" aria-label="Replay speed"><span>Speed</span>{speeds.map(value => <button key={value} aria-pressed={speed === value} className={speed === value ? 'active' : ''} onClick={() => setSpeed(value)}>{value}×</button>)}</div></div>
+      </section>
+      {snapshotError && !current && snapshot && <p className="inline-error" role="alert">Replay paused. {snapshotError}</p>}
+      {current && <>
+        <section className="stats-panel" aria-labelledby="stats-title"><div className="section-head"><h2 id="stats-title">Match numbers</h2><p>Through minute {minute}</p></div><div className="stats-grid">{([['Possession', 'possession_percent', '%'], ['Shots', 'shots', ''], ['Passes', 'passes', '']] as const).map(([label, key, suffix]) => {
+          const left = current.stats[key][home.id] ?? 0
+          const right = current.stats[key][away.id] ?? 0
+          return <div className="stat" key={key}><div><strong>{left}{suffix}</strong><span>{label}</span><strong>{right}{suffix}</strong></div><div className="stat-track" role="img" aria-label={label + ': ' + home.name + ' ' + left + suffix + ', ' + away.name + ' ' + right + suffix}><span style={{ width: (left + right ? left / (left + right) * 100 : 50) + '%' }} /></div></div>
+        })}</div></section>
+        <div className="content-grid">
+          <section className="insights-panel" aria-labelledby="insights-title"><div className="section-head insight-head"><div><h2 id="insights-title">Match insights</h2><p>Every insight links to verified events</p></div><div className="mode-switch" role="group" aria-label="Explanation mode"><button aria-pressed={mode === 'fan'} className={mode === 'fan' ? 'active' : ''} onClick={() => setMode('fan')}>Fan</button><button aria-pressed={mode === 'analyst'} className={mode === 'analyst' ? 'active' : ''} onClick={() => setMode('analyst')}>Analyst</button></div></div>
+            {insightList.length === 0 ? <div className="empty-state"><strong>No insights yet</strong><p>Play or jump ahead to see evidence-backed moments.</p></div> : <div className="insight-list">{insightList.map(insight => <article className={'insight-card ' + (selectedId === insight.id ? 'selected' : '')} key={insight.id}><button className="insight-select" aria-expanded={selectedId === insight.id} onClick={() => setSelectedId(selectedId === insight.id ? null : insight.id)}><span className={'insight-icon ' + insight.type} aria-hidden="true">{insight.type === 'goal' ? '●' : insight.type === 'shot_surge' ? '↗' : '↔'}</span><span className="insight-summary"><small>{insight.minute}' · {teams.find(team => team.id === insight.team_id)?.name ?? insight.team_id}</small><strong>{title(insight)}</strong><small>{insight.evidence_event_ids.length} supporting events</small></span><span className="open-icon" aria-hidden="true">{selectedId === insight.id ? '−' : '+'}</span></button>{selectedId === insight.id && <div className="insight-detail"><div className="explanation" aria-live="polite">{explanationLoading ? <p>Loading {mode} explanation…</p> : explanationError ? <div role="alert"><p>{explanationError}. Verified evidence is below.</p><button className="text-button" onClick={() => setExplanationAttempt(n => n + 1)}>Retry explanation</button></div> : explanation ? <><p>{explanation.text}</p><span className="source-tag">{source(explanation.source)}</span></> : null}</div><Evidence insight={insight} teams={teams} /></div>}</article>)}</div>}
+          </section>
+          <section className="events-panel" aria-labelledby="events-title"><div className="section-head"><h2 id="events-title">Event feed</h2><p>Latest events in the 10-minute window</p></div>{eventList.length === 0 ? <div className="empty-state"><strong>Waiting for kick off</strong><p>Events appear as the replay advances.</p></div> : <ol className="event-list">{eventList.map(event => <li key={event.id} className={event.type === 'goal' ? 'goal-event' : ''}><time>{event.minute}'{String(event.second).padStart(2, '0')}″</time><span className="event-dot" aria-hidden="true" /><div><strong>{eventTitle(event)}</strong><p>{teams.find(team => team.id === event.team_id)?.name ?? event.team_id}{event.player_id ? ' · ' + event.player_id : ''}</p><small>{event.id}{event.related_event_id ? ' · linked shot ' + event.related_event_id : ''}</small></div></li>)}</ol>}</section>
+        </div>
+        {minute === 90 && <section className="recap-panel" aria-labelledby="recap-title"><div className="recap-head"><div><span>90'</span><h2 id="recap-title">Full-time recap</h2></div><small>{mode === 'fan' ? 'Fan view' : 'Analyst view'}</small></div>{recapLoading ? <p role="status">Loading full-time recap…</p> : recapError ? <div role="alert"><p>{recapError}. Final match numbers remain available above.</p><button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Retry recap</button></div> : recap ? <><p className="recap-text">{recap.text}</p><div className="recap-meta"><span className="source-tag">{source(recap.source)}</span><span>{recap.moment_ids.length ? 'Based on insights: ' + recap.moment_ids.join(', ') : 'Based on final match facts'}</span></div></> : null}</section>}
+      </>}
+    </main><footer className="site-footer"><span>MatchLens · fictional football replay</span><span>Synthetic match data</span></footer>
+  </div>
+}
 export default App

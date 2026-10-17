@@ -3,7 +3,9 @@
 **Working title:** MatchLens  
 **Team:** Ayesha, Maryam, Zoya, Billi  
 **Planning date:** October 17, 2026  
-**Target submission:** October 27, 2026, subject to checking the official deadline and time zone
+**Official submission cutoff:** October 27, 2026 at 11:59 p.m. Pacific Time (October 28 at 12:29 p.m. India Standard Time). The team should submit earlier.
+
+Microsoft's [official rules](https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20RULES.md) also close registration on October 20, 2026 at noon Pacific Time (October 21 at 12:30 a.m. India Standard Time). The team must appoint an eligible representative to enter the submission.
 
 ## One-sentence pitch
 
@@ -64,7 +66,7 @@ The precise Azure hosting setup is a day-one decision: first confirm subscriptio
 | Oct 26 | Submission assets | Video under two minutes, English pitch/readme, public repo, links and access checked |
 | Oct 27 | Submit early | Submission receipt and links checked before official cutoff |
 
-If the official deadline differs, move the submission gate earlier. Do not use the suggested dates as proof of organizer rules.
+The dates above are now checked against the official rules; the daily milestones remain team targets. Keep the public demo available free of charge and without restrictions through the end of judging on November 10, 2026.
 
 ## Decision gates
 
@@ -98,7 +100,7 @@ If the official deadline differs, move the submission gate earlier. Do not use t
 | Decision | Owner | Due |
 |---|---|---|
 | Final project name and target category | All; Ayesha records | Oct 17 |
-| Official deadline/time zone and submission rules | Zoya | Oct 17 |
+| Confirm registration and appoint an eligible team representative | Zoya | Before Oct 20 noon Pacific |
 | Foundry model access, quota, and permitted spend | Maryam + Zoya | Oct 18 |
 | Azure deployment approach and owner account | Zoya + Billi | Oct 18 |
 | Final fixture teams/players and demo storyline | Billi + Ayesha | Oct 18 |

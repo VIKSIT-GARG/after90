@@ -25,3 +25,4 @@ coverage/
 # Temporary media and recordings
 tmp/
 *.mp4
+.playwright-mcp/

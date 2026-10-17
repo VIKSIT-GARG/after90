@@ -1,6 +1,6 @@
 # Five-phase delivery plan
 
-This sequence turns the hackathon brief into one working demo. Dates are team targets from the brief; Zoya must verify the organizer's actual cutoff. **Phases 1 and 2 are built.** Later phases remain planned.
+This sequence turns the hackathon brief into one working demo. The phase dates are team targets. Microsoft's [official rules](https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20RULES.md) set registration at October 20, 2026 noon Pacific and submission at October 27, 2026 11:59 p.m. Pacific. **Phases 1–4 and the local Phase 5 package are built.** Public release remains a team action.
 
 | Phase | Target | Owner and support | Deliverable | Exit gate |
 |---|---|---|---|---|
@@ -14,13 +14,13 @@ This sequence turns the hackathon brief into one working demo. Dates are team ta
 
 - [x] Phase 1: shared Pydantic event contract, Python API and React bootstraps, local run commands, visible synthetic-data label, health endpoint.
 - [x] Phase 2: validated 225-event golden fixture, event-derived score/stats, three evidence-backed insight rules, stateless minute snapshot endpoint, behavior and integration tests.
-- [ ] Phase 3: interactive replay dashboard and evidence view.
-- [ ] Phase 4: grounded Fan/Analyst explanations and full-time recap.
-- [ ] Phase 5: release checks, public deployment, video, and submission.
+- [x] Phase 3: interactive replay dashboard, event feed, evidence view, and responsive layout; desktop and mobile browser flows checked locally.
+- [x] Phase 4: grounded Fan/Analyst explanations, optional Foundry adapter with deterministic fallback, and full-time recap. Live Foundry access remains unverified.
+- [ ] Phase 5: local container, CI, smoke check, deployment runbook, and demo script are ready; public deployment, video hosting, registration, and submission remain open.
 
 ## Current implementation boundary
 
-Phase 2 exposes `GET /api/health` and `GET /api/matches/demo?minute=0..90`. Insight explanation and recap endpoints belong to Phase 4. The Phase 1 frontend is a compilable shell; replay UI belongs to Phase 3. This boundary keeps completion claims honest.
+The API exposes health, minute snapshots, evidenced insight explanations, and full-time recap. The frontend uses all four routes. The built frontend and API run in one container. Without configured Foundry credentials, the API labels explanation and recap text as `template`; no live Foundry or Azure deployment is claimed.
 
 ## Critical dependencies
 

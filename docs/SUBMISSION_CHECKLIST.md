@@ -1,30 +1,32 @@
 # Release and submission checklist
 
-The supplied team brief lists these deliverables. Zoya must verify them against the organizer's official page, including the exact deadline, time zone, category, and public-access rules.
+The [official rules](https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20RULES.md) set registration to close **October 20, 2026 at noon Pacific** and submissions to close **October 27, 2026 at 11:59 p.m. Pacific**. A team must appoint an eligible representative. The public working demo must stay available free of charge without restrictions through the judging period ending November 10, 2026.
 
 ## Product release
 
-- [ ] Match starts, pauses, resets, changes speed, and reaches full time from a clean browser session.
-- [ ] Score and stats match the golden fixture at sampled minutes and at full time.
-- [ ] At least one goal, one attacking pattern, and one possession/alternative trend insight appear with evidence.
-- [ ] Fan and Analyst modes show different wording over the same facts.
-- [ ] Every match screen clearly says **Synthetic match data**.
+- [x] Match starts, pauses, resets, changes speed, and reaches full time from a clean local browser session.
+- [x] Score and stats match the golden fixture at sampled minutes and at full time.
+- [x] Goal, shot surge, and possession swing insights appear with evidence.
+- [x] Fan and Analyst modes show different wording over the same facts.
+- [x] Every match screen clearly says **Synthetic match data**.
 - [ ] Foundry path is demonstrated if access exists; fallback works and is described accurately.
-- [ ] Recap matches final score and selected moments.
+- [x] Recap matches final score and selected moments.
 - [ ] Public demo opens without a team login; mobile and desktop layouts are usable.
-- [ ] No keys, tokens, private endpoints, or personal data are committed or exposed in the browser.
-- [ ] README includes setup, architecture, actual Microsoft services, limitations, and demo URL.
+- [x] No keys, tokens, private endpoints, or personal data are committed or exposed in the browser build.
+- [ ] README includes setup, architecture, actual Microsoft services, limitations, and a public demo URL (URL awaits deployment).
 
 ## Required submission assets from the brief
 
 - [ ] Public GitHub repository with source and license decision.
 - [ ] Working public demo or test build and access instructions.
-- [ ] Public video shorter than two minutes showing the actual product working.
+- [ ] Public video shorter than two minutes showing the actual product working, hosted on YouTube, Vimeo, Facebook Video, or Youku.
 - [ ] Short English pitch: problem, users, solution, AI grounding, and Microsoft technology actually used.
 - [ ] English text or required translations for all submission materials.
+- [ ] Team registration completed before October 20 noon Pacific; eligible representative appointed.
 - [ ] Official category and eligibility requirements checked.
+- [ ] Demo access remains free and unrestricted through November 10.
 - [ ] Final links tested in a private browser session and pasted into the organizer form.
-- [ ] Submission completed before the verified official deadline; receipt saved.
+- [ ] Submission completed before October 27 at 11:59 p.m. Pacific; receipt saved.
 
 ## Suggested 110-second video script
 

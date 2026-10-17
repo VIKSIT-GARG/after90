@@ -25,7 +25,7 @@ Read `README.md`, `docs/PROJECT_PLAN.md`, and `docs/TECHNICAL_SPEC.md` before im
 - `docs/`: product decisions, setup, evidence of testing, deployment, and submission materials.
 - `tests/`: behavior checks for fixture validity, statistics, API contracts, explanation evidence, and replay. Teams may keep language-specific tests beside their code.
 
-The `frontend/`, `backend/`, `data/`, `docs/`, and `tests/` directories now exist. Phases 1-2 are built; see `docs/PHASES.md` before starting the next phase. Do not add an unrelated framework or cloud service without recording the reason in `docs/PROJECT_PLAN.md`.
+The `frontend/`, `backend/`, `data/`, `docs/`, and `tests/` directories now exist. Phases 1–4 and the local Phase 5 package are built; see `docs/PHASES.md` for the remaining public release gates. Do not add an unrelated framework or cloud service without recording the reason in `docs/PROJECT_PLAN.md`.
 
 ## Ownership and collaboration
 

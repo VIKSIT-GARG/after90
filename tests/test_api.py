@@ -1,7 +1,8 @@
-"""Contract checks for the phase-two HTTP surface."""
+"""Contract and cache checks for the complete HTTP surface."""
 
 from fastapi.testclient import TestClient
 
+from backend.matchlens import api as api_module
 from backend.matchlens.api import app, get_fixture
 from backend.matchlens.models import MatchEvent, MatchFixture, Player, Team
 
@@ -58,3 +59,51 @@ def test_minute_bounds_are_rejected() -> None:
         assert client.get("/api/matches/demo?minute=oops").status_code == 422
     finally:
         app.dependency_overrides.clear()
+
+
+def test_explanation_and_recap_routes_use_the_same_verified_match(monkeypatch) -> None:
+    for key in ("FOUNDRY_RESPONSES_URL", "FOUNDRY_API_KEY", "FOUNDRY_MODEL"):
+        monkeypatch.delenv(key, raising=False)
+    client = TestClient(app)
+    final = client.get("/api/matches/demo?minute=90").json()
+    insight_id = next(item["id"] for item in final["insights"] if item["type"] == "goal")
+
+    fan_response = client.get(f"/api/matches/demo/insights/{insight_id}?mode=fan")
+    analyst_response = client.get(f"/api/matches/demo/insights/{insight_id}?mode=analyst")
+    assert fan_response.status_code == analyst_response.status_code == 200
+    fan, analyst = fan_response.json(), analyst_response.json()
+    assert fan["insight_id"] == analyst["insight_id"] == insight_id
+    assert fan["text"] != analyst["text"]
+    assert fan["evidence"] == analyst["evidence"]
+    assert fan["source"] == analyst["source"] == "template"
+
+    recap = client.get("/api/matches/demo/recap?mode=analyst")
+    assert recap.status_code == 200
+    assert recap.json()["final_score"] == final["score"]
+    assert recap.json()["stats"] == final["stats"]
+    assert recap.json()["source"] == "template"
+    assert client.get("/api/matches/demo/insights/not-real").status_code == 404
+    assert client.get(f"/api/matches/demo/insights/{insight_id}?mode=expert").status_code == 422
+    assert client.get("/api/matches/demo/recap?mode=expert").status_code == 422
+
+
+def test_explanation_cache_is_scoped_by_fixture_insight_and_mode(monkeypatch) -> None:
+    app.dependency_overrides[get_fixture] = tiny_fixture
+    api_module._explanation_cache.clear()
+    original = api_module.explain_insight
+    calls = []
+
+    def counted(fixture, insight, mode):
+        calls.append((fixture.fixture_version, insight["id"], mode))
+        return original(fixture, insight, mode)
+
+    monkeypatch.setattr(api_module, "explain_insight", counted)
+    try:
+        client = TestClient(app)
+        goal_id = client.get("/api/matches/demo?minute=90").json()["insights"][0]["id"]
+        for mode in ("fan", "fan", "analyst", "analyst"):
+            assert client.get(f"/api/matches/demo/insights/{goal_id}?mode={mode}").status_code == 200
+        assert calls == [("test-v1", goal_id, "fan"), ("test-v1", goal_id, "analyst")]
+    finally:
+        app.dependency_overrides.clear()
+        api_module._explanation_cache.clear()
