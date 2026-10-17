@@ -16,7 +16,7 @@ This sequence turns the hackathon brief into one working demo. The phase dates a
 - [x] Phase 2: validated 225-event golden fixture, event-derived score/stats, three evidence-backed insight rules, stateless minute snapshot endpoint, behavior and integration tests.
 - [x] Phase 3: interactive replay dashboard, event feed, evidence view, and responsive layout; desktop and mobile browser flows checked locally.
 - [x] Phase 4: grounded Fan/Analyst explanations, optional Foundry adapter with deterministic fallback, and full-time recap. Live Foundry access remains unverified.
-- [ ] Phase 5: local container, CI, smoke check, deployment runbook, and demo script are ready; public deployment, video hosting, registration, and submission remain open.
+- [ ] Phase 5: local container, CI, smoke check, deployment runbook, demo script, and public GitHub repository are ready; public deployment, video hosting, registration, and submission remain open.
 
 ## Current implementation boundary
 

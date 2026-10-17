@@ -17,7 +17,8 @@ The [official rules](https://github.com/microsoft/insidethegamehackathon/blob/ma
 
 ## Required submission assets from the brief
 
-- [ ] Public GitHub repository with source and license decision.
+- [x] Public GitHub repository with source: https://github.com/VIKSIT-GARG/matchlens.
+- [ ] Team license decision recorded.
 - [ ] Working public demo or test build and access instructions.
 - [ ] Public video shorter than two minutes showing the actual product working, hosted on YouTube, Vimeo, Facebook Video, or Youku.
 - [ ] Short English pitch: problem, users, solution, AI grounding, and Microsoft technology actually used.

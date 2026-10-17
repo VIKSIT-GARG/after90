@@ -10,7 +10,7 @@ Following a match should mean more than watching a score change. MatchLens lets 
 
 ## Submission fields to fill after publication
 
-- **Public repository:** pending team publication and license decision.
+- **Public repository:** https://github.com/VIKSIT-GARG/matchlens. License decision remains with the team.
 - **Working demo URL:** pending Azure account and deployment.
 - **Public video URL:** pending upload of the final under-two-minute recording.
 - **Category:** pending team selection against the official categories.
