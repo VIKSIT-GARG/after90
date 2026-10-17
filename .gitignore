@@ -1,0 +1,27 @@
+# Local credentials and overrides
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Node/frontend
+node_modules/
+dist/
+build/
+coverage/
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+
+# Temporary media and recordings
+tmp/
+*.mp4

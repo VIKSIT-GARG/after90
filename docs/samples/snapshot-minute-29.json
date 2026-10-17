@@ -1,0 +1,420 @@
+{
+  "match_id": "demo",
+  "fixture_version": "v1",
+  "synthetic": true,
+  "minute": 29,
+  "teams": [
+    {
+      "id": "blue",
+      "name": "Northstar Quay"
+    },
+    {
+      "id": "red",
+      "name": "Copper Vale"
+    }
+  ],
+  "score": {
+    "blue": 1,
+    "red": 0
+  },
+  "stats": {
+    "shots": {
+      "blue": 5,
+      "red": 0
+    },
+    "passes": {
+      "blue": 43,
+      "red": 17
+    },
+    "possession_percent": {
+      "blue": 72,
+      "red": 28
+    }
+  },
+  "recent_events": [
+    {
+      "id": "e047",
+      "minute": 20,
+      "second": 10,
+      "type": "pass",
+      "team_id": "red",
+      "player_id": "red_03",
+      "outcome": "completed",
+      "possession_team_id": "red",
+      "related_event_id": null
+    },
+    {
+      "id": "e048",
+      "minute": 20,
+      "second": 20,
+      "type": "tackle",
+      "team_id": "blue",
+      "player_id": "blue_06",
+      "outcome": "won",
+      "possession_team_id": "red",
+      "related_event_id": null
+    },
+    {
+      "id": "e049",
+      "minute": 20,
+      "second": 21,
+      "type": "possession_change",
+      "team_id": "blue",
+      "player_id": null,
+      "outcome": null,
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e050",
+      "minute": 20,
+      "second": 50,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_06",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e051",
+      "minute": 21,
+      "second": 10,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_06",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e052",
+      "minute": 21,
+      "second": 50,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_09",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e053",
+      "minute": 22,
+      "second": 10,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_09",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e054",
+      "minute": 22,
+      "second": 20,
+      "type": "shot",
+      "team_id": "blue",
+      "player_id": "blue_09",
+      "outcome": "blocked",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e055",
+      "minute": 22,
+      "second": 50,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_04",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e056",
+      "minute": 23,
+      "second": 10,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_04",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e057",
+      "minute": 23,
+      "second": 50,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_08",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e058",
+      "minute": 24,
+      "second": 10,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_08",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e059",
+      "minute": 24,
+      "second": 50,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_03",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e060",
+      "minute": 25,
+      "second": 10,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_03",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e061",
+      "minute": 25,
+      "second": 20,
+      "type": "shot",
+      "team_id": "blue",
+      "player_id": "blue_08",
+      "outcome": "blocked",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e062",
+      "minute": 25,
+      "second": 50,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_06",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e063",
+      "minute": 26,
+      "second": 10,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_06",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e064",
+      "minute": 26,
+      "second": 50,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_09",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e065",
+      "minute": 27,
+      "second": 10,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_09",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e066",
+      "minute": 27,
+      "second": 50,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_04",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e067",
+      "minute": 28,
+      "second": 10,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_04",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e068",
+      "minute": 28,
+      "second": 20,
+      "type": "shot",
+      "team_id": "blue",
+      "player_id": "blue_09",
+      "outcome": "blocked",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e069",
+      "minute": 28,
+      "second": 50,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_08",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e070",
+      "minute": 29,
+      "second": 10,
+      "type": "pass",
+      "team_id": "blue",
+      "player_id": "blue_08",
+      "outcome": "completed",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e071",
+      "minute": 29,
+      "second": 20,
+      "type": "shot",
+      "team_id": "blue",
+      "player_id": "blue_09",
+      "outcome": "goal",
+      "possession_team_id": "blue",
+      "related_event_id": null
+    },
+    {
+      "id": "e072",
+      "minute": 29,
+      "second": 21,
+      "type": "goal",
+      "team_id": "blue",
+      "player_id": "blue_09",
+      "outcome": null,
+      "possession_team_id": "blue",
+      "related_event_id": "e071"
+    },
+    {
+      "id": "e073",
+      "minute": 29,
+      "second": 35,
+      "type": "possession_change",
+      "team_id": "red",
+      "player_id": null,
+      "outcome": null,
+      "possession_team_id": "red",
+      "related_event_id": null
+    },
+    {
+      "id": "e074",
+      "minute": 29,
+      "second": 50,
+      "type": "pass",
+      "team_id": "red",
+      "player_id": "red_03",
+      "outcome": "completed",
+      "possession_team_id": "red",
+      "related_event_id": null
+    }
+  ],
+  "insights": [
+    {
+      "id": "swing-20-blue",
+      "type": "possession_swing",
+      "minute": 20,
+      "team_id": "blue",
+      "evidence_event_ids": [
+        "e013",
+        "e029",
+        "e045",
+        "e049"
+      ],
+      "evidence": {
+        "previous_window": [
+          1,
+          10
+        ],
+        "current_window": [
+          11,
+          20
+        ],
+        "previous_possession_percent": {
+          "blue": 45,
+          "red": 55
+        },
+        "current_possession_percent": {
+          "blue": 77,
+          "red": 23
+        },
+        "change_points": 32,
+        "initial_possession_team_id": "blue"
+      }
+    },
+    {
+      "id": "surge-28-blue",
+      "type": "shot_surge",
+      "minute": 28,
+      "team_id": "blue",
+      "evidence_event_ids": [
+        "e054",
+        "e061",
+        "e068"
+      ],
+      "evidence": {
+        "window_start_minute_inclusive": 19,
+        "window_end_minute_inclusive": 28,
+        "shot_counts": {
+          "blue": 3,
+          "red": 0
+        }
+      }
+    },
+    {
+      "id": "goal-e072",
+      "type": "goal",
+      "minute": 29,
+      "team_id": "blue",
+      "evidence_event_ids": [
+        "e072",
+        "e071"
+      ],
+      "evidence": {
+        "goal_event_id": "e072",
+        "shot_event_id": "e071",
+        "player_id": "blue_09",
+        "score_before": {
+          "blue": 0,
+          "red": 0
+        },
+        "score_after": {
+          "blue": 1,
+          "red": 0
+        }
+      }
+    }
+  ]
+}
