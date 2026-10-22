@@ -89,6 +89,82 @@ function eventTitle(event: Event) {
 function windowText(value: unknown) {
   return Array.isArray(value) && value.length === 2 ? value[0] + '–' + value[1] : '—'
 }
+
+// An explainable activity index, not xG, possession percentage, or an AI prediction.
+// Only events supplied by the active data source are scored.
+function activityPoints(event: Event): number {
+  if (event.type === 'goal') return 8
+  if (event.type === 'shot') return 4
+  if (event.type === 'possession_change') return 2
+  if (event.type === 'tackle') return event.outcome === 'failed' ? 0 : 2
+  if (event.type === 'pass') return event.outcome === 'completed' ? 1 : 0
+  return 0
+}
+
+type ActivityBucket = { start: number; end: number; events: Event[]; scores: Pair }
+
+function MatchActivity({ events, teams, minute, onSeek }: {
+  events: Event[]; teams: Team[]; minute: number; onSeek: (minute: number) => void
+}) {
+  const [selectedStart, setSelectedStart] = useState<number | null>(null)
+  // Snapshots expose a rolling recent-events window, not a complete match feed.
+  // Buckets cover only that supplied window; no unseen minutes are estimated.
+  const windowStart = Math.max(0, minute - 10)
+  const visible = events.filter(event => event.minute >= windowStart && event.minute <= minute)
+  const firstBucket = Math.floor(windowStart / 5) * 5
+  const lastBucket = Math.floor(minute / 5) * 5
+  const buckets: ActivityBucket[] = []
+  for (let start = firstBucket; start <= lastBucket; start += 5) {
+    const bucketEvents = visible.filter(event => event.minute >= start && event.minute < start + 5)
+    const scores: Pair = Object.fromEntries(teams.map(team => [team.id, bucketEvents
+      .filter(event => event.team_id === team.id)
+      .reduce((sum, event) => sum + activityPoints(event), 0)]))
+    buckets.push({ start, end: Math.min(90, start + 5), events: bucketEvents, scores })
+  }
+  const selected = buckets.find(bucket => bucket.start === selectedStart) ?? buckets[buckets.length - 1]
+  const maxScore = Math.max(1, ...buckets.flatMap(bucket => teams.map(team => bucket.scores[team.id] ?? 0)))
+  return <section className="activity-panel" aria-labelledby="activity-title">
+    <div className="section-head activity-head">
+      <div><h2 id="activity-title">Match activity <span className="section-spark">✦</span></h2>
+        <p>Event-weighted attacking activity · available window {windowStart}'–{minute}'</p></div>
+      <span className="activity-pill">Transparent metric · not AI</span>
+    </div>
+    <div className="activity-legend" aria-label="Teams">
+      {teams.map((team, index) => <span key={team.id}><i className={'activity-key activity-key-' + index} />{team.name}</span>)}
+    </div>
+    <div className="activity-chart" role="group" aria-label="Select a five-minute match interval">
+      {buckets.map(bucket => <button type="button" key={bucket.start}
+        className={'activity-bucket' + (selected?.start === bucket.start ? ' is-selected' : '')}
+        aria-pressed={selected?.start === bucket.start}
+        aria-label={`Minutes ${bucket.start} to ${bucket.end}: ${teams.map(team => `${team.name} ${bucket.scores[team.id] ?? 0} points`).join(', ')}`}
+        onClick={() => setSelectedStart(bucket.start)}>
+        <span className="activity-bars">
+          {teams.map((team, index) => <span key={team.id} className={'activity-bar activity-bar-' + index}
+            style={{ height: `${Math.max(3, (bucket.scores[team.id] ?? 0) / maxScore * 100)}%` }}
+            title={`${team.name}: ${bucket.scores[team.id] ?? 0} activity points`} />)}
+        </span>
+        <span className="activity-tick">{bucket.start}'</span>
+      </button>)}
+    </div>
+    {selected && <div className="activity-details">
+      <div className="activity-details-top"><div><strong>{selected.start}'–{selected.end}' interval</strong>
+        <p>{selected.events.length} recorded events in the available window</p></div>
+        <button type="button" className="activity-seek" onClick={() => onSeek(Math.min(90, selected.end))}>Replay to {selected.end}' ↗</button>
+      </div>
+      <div className="activity-score-row">{teams.map((team, index) => <span key={team.id}>
+        <i className={'activity-key activity-key-' + index} />{team.name} <strong>{selected.scores[team.id] ?? 0} pts</strong>
+      </span>)}</div>
+      {selected.events.length ? <ul className="activity-events">{selected.events.map(event => <li key={event.id}>
+        <span>{event.minute}'{String(event.second).padStart(2, '0')}″</span>
+        <strong>{eventTitle(event)}</strong>
+        <span>{teams.find(team => team.id === event.team_id)?.name ?? event.team_id}</span>
+        <small>+{activityPoints(event)} pts · {event.id}</small>
+      </li>)}</ul> : <p className="activity-empty">No supplied events in this interval.</p>}
+    </div>}
+    <p className="activity-method">How it's scored: completed pass +1 · shot +4 · goal +8 · possession change +2 · successful tackle +2. Failed or unknown passes and failed tackles +0. Goals are counted as their own event, not as an additional shot. This is a custom event-activity index, not a measure of true momentum or team dominance. Empty intervals may reflect the API's limited recent-event window.</p>
+  </section>
+}
+
 function Evidence({ insight, teams }: { insight: Insight; teams: Team[] }) {
   const evidence = insight.evidence
   const focus = teams.find(team => team.id === insight.team_id)
@@ -168,7 +244,7 @@ function App() {
     return () => controller.abort()
   }, [minute, snapshotAttempt, previewMode])
 
-  const current = snapshot?.minute === minute ? snapshot : null
+  const current = previewMode ? demoSnapshot(minute) : snapshot?.minute === minute ? snapshot : null
   const selected = current?.insights.find(insight => insight.id === selectedId)
   const version = current?.fixture_version
   useEffect(() => {
@@ -226,7 +302,7 @@ function App() {
   return <div className="app-shell">
     <header className="site-header">
       <a href="#match" className="brand"><span className="brand-symbol" aria-hidden="true">◉</span><span>AFTER<span className="brand-accent">90</span></span></a>
-      <nav className="site-nav" aria-label="Dashboard sections"><a href="#match">Match center</a><a href="#insights-title">Insights</a><a href="#events-title">Timeline</a></nav>
+      <nav className="site-nav" aria-label="Dashboard sections"><a href="#match">Match center</a><a href="#insights-title">Insights</a><a href="#activity-title">Activity</a><a href="#events-title">Timeline</a></nav>
       <span className="synthetic-label">Synthetic match data</span>
     </header>
     <main id="match" className="dashboard">
@@ -252,6 +328,7 @@ function App() {
           const right = current.stats[key][away.id] ?? 0
           return <div className="stat" key={key}><div><strong>{left}{suffix}</strong><span>{label}</span><strong>{right}{suffix}</strong></div><div className="stat-track" role="img" aria-label={label + ': ' + home.name + ' ' + left + suffix + ', ' + away.name + ' ' + right + suffix}><span style={{ width: (left + right ? left / (left + right) * 100 : 50) + '%' }} /></div></div>
         })}</div></section>
+        <MatchActivity events={current.recent_events} teams={teams} minute={minute} onSeek={seek} />
         <div className="content-grid">
           <section className="insights-panel" aria-labelledby="insights-title"><div className="section-head insight-head"><div><h2 id="insights-title">✦ Insight center</h2><p>Every insight links to verified events</p></div><div className="mode-switch" role="group" aria-label="Explanation mode"><button aria-pressed={mode === 'fan'} className={mode === 'fan' ? 'active' : ''} onClick={() => setMode('fan')}>Fan</button><button aria-pressed={mode === 'analyst'} className={mode === 'analyst' ? 'active' : ''} onClick={() => setMode('analyst')}>Analyst</button></div></div>
             {insightList.length === 0 ? <div className="empty-state"><strong>No insights yet</strong><p>Play or jump ahead to see evidence-backed moments.</p></div> : <div className="insight-list">{insightList.map(insight => <article className={'insight-card ' + (selectedId === insight.id ? 'selected' : '')} key={insight.id}><button className="insight-select" aria-expanded={selectedId === insight.id} onClick={() => setSelectedId(selectedId === insight.id ? null : insight.id)}><span className={'insight-icon ' + insight.type} aria-hidden="true">{insight.type === 'goal' ? '●' : insight.type === 'shot_surge' ? '↗' : '↔'}</span><span className="insight-summary"><small>{insight.minute}' · {teams.find(team => team.id === insight.team_id)?.name ?? insight.team_id}</small><strong>{title(insight)}</strong><small>{insight.evidence_event_ids.length} supporting events</small></span><span className="open-icon" aria-hidden="true">{selectedId === insight.id ? '−' : '+'}</span></button>{selectedId === insight.id && <div className="insight-detail"><div className="explanation" aria-live="polite">{explanationLoading ? <p>Loading {mode} explanation…</p> : explanationError ? <div role="alert"><p>{explanationError}. Verified evidence is below.</p><button className="text-button" onClick={() => setExplanationAttempt(n => n + 1)}>Retry explanation</button></div> : explanation ? <><p>{explanation.text}</p><span className="source-tag">{source(explanation.source)}</span></> : null}</div><Evidence insight={insight} teams={teams} /></div>}</article>)}</div>}
