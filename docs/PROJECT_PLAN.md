@@ -104,3 +104,13 @@ The dates above are now checked against the official rules; the daily milestones
 | Foundry model access, quota, and permitted spend | Maryam + Zoya | Oct 18 |
 | Azure deployment approach and owner account | Zoya + Billi | Oct 18 |
 | Final fixture teams/players and demo storyline | Billi + Ayesha | Oct 18 |
+
+## October 24 AI delivery update
+
+The product name is **After90**. Internal MatchLens package names remain stable.
+The new twelve-phase AI delivery plan is [AI_DELIVERY.md](AI_DELIVERY.md); its
+numbering is independent from the historical phases above. The approved scope
+adds contextual evidence packets, paired audience generation, evaluated claim
+selection, a ranked story ledger and structured studio overlay output within the
+existing FastAPI/React application. Azure public release and Foundry proof remain
+external gates. Optional agents and other personalization follow a stable release.

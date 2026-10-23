@@ -1,8 +1,8 @@
-# MatchLens
+# After90
 
-MatchLens is a replayable companion for a **fictional football match**. It derives scores, statistics, and insight evidence from 225 synthetic events, then explains moments in Fan or Analyst mode. The final recap uses the same verified match facts. Every match view is labeled **Synthetic match data**.
+After90 is a replayable companion for a **fictional football match**. It derives scores, statistics, and insight evidence from 225 synthetic events, then explains moments in Fan or Analyst mode. The final recap uses the same verified match facts. Every match view is labeled **Synthetic match data**.
 
-**Build status:** Phases 1–4 and the local release package for Phase 5 are implemented. The dashboard and container pass local checks. Public Azure deployment, a hosted video, team registration, and the final hackathon submission still require the team's accounts and decisions. Microsoft Foundry is an optional server-side integration; the current local demo uses clearly labeled deterministic templates because no Foundry credentials are configured.
+**Build status:** The original five-phase MVP has its replay baseline and local release package implemented. The new AI delivery plan has separate phase numbers and service-verification gates. The dashboard and container pass local checks. Public Azure deployment, a hosted video, team registration, and the final hackathon submission still require the team's accounts and decisions. Microsoft Foundry is an optional server-side integration; the current local demo uses clearly labeled deterministic templates because no Foundry credentials are configured.
 
 ![MatchLens dashboard showing a fictional goal insight and its supporting events](docs/assets/dashboard.png)
 
@@ -49,4 +49,25 @@ The browser never receives a model key. Copy `.env.example` to a local `.env` on
 - [Technical contract](docs/TECHNICAL_SPEC.md), [project plan](docs/PROJECT_PLAN.md), and [contributor instructions](AGENTS.md).
 - [Azure deployment runbook](docs/DEPLOYMENT.md), [demo script](docs/DEMO_SCRIPT.md), and [submission checklist](docs/SUBMISSION_CHECKLIST.md).
 
-The [public source repository](https://github.com/VIKSIT-GARG/matchlens) is available on GitHub. The team's supplied hackathon brief is `hackathon microsoft-1.pdf` outside this repository. The [official rules](https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20RULES.md) set registration for October 20, 2026 at noon Pacific and submission for October 27, 2026 at 11:59 p.m. Pacific. The hosted video and working demo URL will be added after publication.
+The [public source repository](https://github.com/VIKSIT-GARG/after90) is available on GitHub. The team's supplied hackathon brief is `hackathon microsoft-1.pdf` outside this repository. The [official rules](https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20RULES.md) set registration for October 20, 2026 at noon Pacific and submission for October 27, 2026 at 11:59 p.m. Pacific. The hosted video and working demo URL will be added after publication.
+
+## AI delivery waves 1 and 2
+
+The new AI service is staged separately from the legacy explanation endpoints.
+See [delivery dependencies](docs/AI_DELIVERY.md), [typed contracts](docs/AI_CONTRACT.md),
+[access checks](docs/AI_ACCESS.md), [evaluation](docs/AI_EVALUATION.md), and
+[completion audit](docs/AI_PROGRESS.md). `backend.matchlens` remains the internal
+package name for compatibility.
+
+```sh
+python scripts/check_ai_readiness.py       # Offline; exits 2 when unconfigured
+python scripts/evaluate_ai.py             # Offline behavioural evaluation
+python scripts/preview_ai.py --recap      # Inspect full-time context and narration
+python scripts/preview_ai.py --insight-id goal-e072 --minute 29
+```
+
+Only `--live` on the readiness/preview scripts opts into a model call. A template
+fallback or injected response is not proof of Foundry access. Missing credentials,
+registration verification and cloud permissions remain visible external gates.
+The UI/API integration, caching changes, studio preview, browser evaluation, and
+public Azure release follow in phases 7-10.

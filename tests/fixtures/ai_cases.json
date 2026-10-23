@@ -1,0 +1,402 @@
+{
+  "schema_version": "1.0",
+  "description": "Fictional offline evaluation. Injected selections are never labelled live Foundry.",
+  "cases": [
+    {
+      "id": "golden-final-score",
+      "category": "snapshot",
+      "check": "score",
+      "expected": {
+        "blue": 2,
+        "red": 1
+      }
+    },
+    {
+      "id": "golden-final-shots",
+      "category": "snapshot",
+      "check": "shots",
+      "expected": {
+        "blue": 10,
+        "red": 6
+      }
+    },
+    {
+      "id": "golden-final-passes",
+      "category": "snapshot",
+      "check": "passes",
+      "expected": {
+        "blue": 95,
+        "red": 87
+      }
+    },
+    {
+      "id": "golden-final-possession",
+      "category": "snapshot",
+      "check": "possession",
+      "expected": {
+        "blue": 53,
+        "red": 47
+      }
+    },
+    {
+      "id": "golden-three-goals",
+      "category": "snapshot",
+      "check": "goal_count",
+      "expected": 3
+    },
+    {
+      "id": "kickoff-no-future",
+      "category": "snapshot",
+      "check": "future_exclusion",
+      "minute": 0,
+      "expected": {
+        "blue": 0,
+        "red": 0
+      }
+    },
+    {
+      "id": "golden-first-goal-score",
+      "category": "snapshot",
+      "check": "score",
+      "minute": 29,
+      "expected": {
+        "blue": 1,
+        "red": 0
+      }
+    },
+    {
+      "id": "rolling-window-exclusive-lower-bound",
+      "category": "snapshot",
+      "check": "window",
+      "minute": 29
+    },
+    {
+      "id": "goal-shot-counted-once",
+      "category": "snapshot",
+      "check": "shot_goal_once",
+      "scenario": "draw",
+      "expected": {
+        "blue": 1,
+        "red": 1
+      }
+    },
+    {
+      "id": "reset-replay-identical",
+      "category": "snapshot",
+      "check": "deterministic",
+      "minute": 57
+    },
+    {
+      "id": "draw-final-score",
+      "category": "snapshot",
+      "check": "score",
+      "scenario": "draw",
+      "expected": {
+        "blue": 1,
+        "red": 1
+      }
+    },
+    {
+      "id": "empty-final-score",
+      "category": "snapshot",
+      "check": "score",
+      "scenario": "empty",
+      "expected": {
+        "blue": 0,
+        "red": 0
+      }
+    },
+    {
+      "id": "empty-has-no-invented-statistics",
+      "category": "snapshot",
+      "check": "empty_stats",
+      "scenario": "empty"
+    },
+    {
+      "id": "minute90-goal-not-visible-at89",
+      "category": "snapshot",
+      "check": "future_exclusion",
+      "scenario": "late_winner",
+      "minute": 89,
+      "expected": {
+        "blue": 0,
+        "red": 0
+      }
+    },
+    {
+      "id": "minute90-goal-included",
+      "category": "snapshot",
+      "check": "score",
+      "scenario": "late_winner",
+      "expected": {
+        "blue": 1,
+        "red": 0
+      }
+    },
+    {
+      "id": "comeback-final-score",
+      "category": "snapshot",
+      "check": "score",
+      "scenario": "comeback",
+      "expected": {
+        "blue": 2,
+        "red": 1
+      }
+    },
+    {
+      "id": "goalless-recorded-shots",
+      "category": "snapshot",
+      "check": "shots",
+      "scenario": "goalless",
+      "expected": {
+        "blue": 1,
+        "red": 0
+      }
+    },
+    {
+      "id": "possession-shares-sum-to100",
+      "category": "snapshot",
+      "check": "possession_sum",
+      "minute": 19
+    },
+    {
+      "id": "opener-context",
+      "category": "context",
+      "check": "interpretation",
+      "scenario": "golden",
+      "goal_index": 0,
+      "expected": "GOAL_OPENS_SCORING"
+    },
+    {
+      "id": "equalizer-context",
+      "category": "context",
+      "check": "interpretation",
+      "scenario": "draw",
+      "goal_index": 1,
+      "expected": "GOAL_EQUALIZES"
+    },
+    {
+      "id": "comeback-lead-context",
+      "category": "context",
+      "check": "interpretation",
+      "scenario": "comeback",
+      "goal_index": 2,
+      "expected": "GOAL_TAKES_LEAD"
+    },
+    {
+      "id": "extends-lead-context",
+      "category": "context",
+      "check": "interpretation",
+      "scenario": "extended_lead",
+      "goal_index": 1,
+      "expected": "GOAL_EXTENDS_LEAD"
+    },
+    {
+      "id": "reduces-deficit-context",
+      "category": "context",
+      "check": "interpretation",
+      "scenario": "reduced_deficit",
+      "goal_index": 2,
+      "expected": "GOAL_REDUCES_DEFICIT"
+    },
+    {
+      "id": "last-minute-opener-context",
+      "category": "context",
+      "check": "interpretation",
+      "scenario": "late_winner",
+      "goal_index": 0,
+      "expected": "GOAL_OPENS_SCORING"
+    },
+    {
+      "id": "future-insight-lookup-rejected",
+      "category": "context",
+      "check": "reject_future"
+    },
+    {
+      "id": "unknown-insight-lookup-rejected",
+      "category": "context",
+      "check": "reject_unknown"
+    },
+    {
+      "id": "shot-surge-context",
+      "category": "context",
+      "check": "interpretation",
+      "insight_type": "shot_surge",
+      "expected": "SHOT_SURGE"
+    },
+    {
+      "id": "possession-context-limits",
+      "category": "context",
+      "check": "limitations",
+      "insight_type": "possession_swing"
+    },
+    {
+      "id": "evidence-only-at-asof",
+      "category": "context",
+      "check": "no_future_evidence"
+    },
+    {
+      "id": "fact-ids-unique",
+      "category": "context",
+      "check": "unique_facts"
+    },
+    {
+      "id": "context-repeated-identical",
+      "category": "context",
+      "check": "stable"
+    },
+    {
+      "id": "goal-includes-linked-shot",
+      "category": "context",
+      "check": "linked_shot"
+    },
+    {
+      "id": "valid-bounded-selection",
+      "category": "generation",
+      "check": "valid"
+    },
+    {
+      "id": "fan-analyst-same-fact-selection",
+      "category": "generation",
+      "check": "paired_modes"
+    },
+    {
+      "id": "unknown-fact-selection-rejected",
+      "category": "generation",
+      "check": "unknown_fact"
+    },
+    {
+      "id": "duplicate-fact-selection-rejected",
+      "category": "generation",
+      "check": "duplicate_fact"
+    },
+    {
+      "id": "empty-fact-selection-rejected",
+      "category": "generation",
+      "check": "empty_facts"
+    },
+    {
+      "id": "wrong-insight-interpretation-rejected",
+      "category": "generation",
+      "check": "wrong_interpretation"
+    },
+    {
+      "id": "future-fact-selection-rejected",
+      "category": "generation",
+      "check": "future_fact"
+    },
+    {
+      "id": "invalid-fan-frame-rejected",
+      "category": "generation",
+      "check": "fan_frame"
+    },
+    {
+      "id": "invalid-analyst-frame-rejected",
+      "category": "generation",
+      "check": "analyst_frame"
+    },
+    {
+      "id": "invented-limitation-rejected",
+      "category": "generation",
+      "check": "limitation"
+    },
+    {
+      "id": "arbitrary-prose-field-rejected",
+      "category": "generation",
+      "check": "extra_field"
+    },
+    {
+      "id": "model-refusal-fallback",
+      "category": "generation",
+      "check": "refusal"
+    },
+    {
+      "id": "empty-response-fallback",
+      "category": "generation",
+      "check": "empty"
+    },
+    {
+      "id": "malformed-json-fallback",
+      "category": "generation",
+      "check": "malformed"
+    },
+    {
+      "id": "list-instead-of-object-fallback",
+      "category": "generation",
+      "check": "wrong_shape"
+    },
+    {
+      "id": "timeout-fallback",
+      "category": "generation",
+      "check": "timeout"
+    },
+    {
+      "id": "network-failure-fallback",
+      "category": "generation",
+      "check": "connection_failure"
+    },
+    {
+      "id": "negated-recorded-goal-rejected",
+      "category": "generation",
+      "check": "negated_goal",
+      "candidate": "Northstar Quay did not score."
+    },
+    {
+      "id": "reversed-score-prose-rejected",
+      "category": "generation",
+      "check": "reversed_score",
+      "candidate": "Copper Vale won 2-1 against Northstar Quay."
+    },
+    {
+      "id": "invented-player-prose-rejected",
+      "category": "generation",
+      "check": "invented_player",
+      "candidate": "Marco scored the goal."
+    },
+    {
+      "id": "unsupported-tactics-rejected",
+      "category": "generation",
+      "check": "tactics",
+      "candidate": "Northstar forced the goal through a high press."
+    },
+    {
+      "id": "future-goal-prose-rejected",
+      "category": "generation",
+      "check": "future_prose",
+      "candidate": "Northstar will score again at minute 84."
+    },
+    {
+      "id": "empty-recap-limited",
+      "category": "recap",
+      "check": "limited",
+      "scenario": "empty"
+    },
+    {
+      "id": "golden-recap-final-score",
+      "category": "recap",
+      "check": "facts"
+    },
+    {
+      "id": "draw-recap-final-score",
+      "category": "recap",
+      "check": "facts",
+      "scenario": "draw"
+    },
+    {
+      "id": "comeback-recap-final-score",
+      "category": "recap",
+      "check": "facts",
+      "scenario": "comeback"
+    },
+    {
+      "id": "recap-supported-event-references",
+      "category": "recap",
+      "check": "story_evidence"
+    },
+    {
+      "id": "story-at20-excludes-later-events",
+      "category": "recap",
+      "check": "story_no_future"
+    }
+  ]
+}
