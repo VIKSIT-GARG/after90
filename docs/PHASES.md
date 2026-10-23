@@ -1,4 +1,7 @@
-# Five-phase delivery plan
+# Historical five-phase MVP plan
+
+For the October 24 AI work, use [the twelve-phase AI delivery plan](AI_DELIVERY.md)
+and [its completion audit](AI_PROGRESS.md). The phase numbers below are historical.
 
 This sequence turns the hackathon brief into one working demo. The phase dates are team targets. Microsoft's [official rules](https://github.com/microsoft/insidethegamehackathon/blob/main/OFFICIAL%20RULES.md) set registration at October 20, 2026 noon Pacific and submission at October 27, 2026 11:59 p.m. Pacific. **Phases 1–4 and the local Phase 5 package are built.** Public release remains a team action.
 

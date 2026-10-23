@@ -1,4 +1,4 @@
-.PHONY: setup test backend frontend build
+.PHONY: setup test backend frontend build ai-evaluate ai-readiness ai-preview
 
 setup:
 	python3 -m venv .venv
@@ -16,3 +16,12 @@ frontend:
 
 build:
 	cd frontend && npm run build
+
+ai-evaluate:
+	.venv/bin/python scripts/evaluate_ai.py
+
+ai-readiness:
+	.venv/bin/python scripts/check_ai_readiness.py
+
+ai-preview:
+	.venv/bin/python scripts/preview_ai.py --recap
