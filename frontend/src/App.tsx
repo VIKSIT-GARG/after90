@@ -47,7 +47,7 @@ function demoSnapshot(minute: number): Snapshot {
     stats: { shots: { northstar: homeShots, copper: awayShots },
       passes: { northstar: Math.floor(minute * 2.8), copper: Math.floor(minute * 2.1) },
       possession_percent: { northstar: possession, copper: 100 - possession } },
-    recent_events: events.filter(event => event.minute >= minute - 10), insights }
+    recent_events: events.filter(event => event.minute > minute - 10), insights }
 }
 function demoExplanation(insight: Insight, mode: Mode): Explanation {
   const before = insight.evidence.score_before as Pair
@@ -96,38 +96,39 @@ function activityPoints(event: Event): number {
   if (event.type === 'goal') return 8
   if (event.type === 'shot') return 4
   if (event.type === 'possession_change') return 2
-  if (event.type === 'tackle') return event.outcome === 'failed' ? 0 : 2
+  if (event.type === 'tackle') return event.outcome === 'won' ? 2 : 0
   if (event.type === 'pass') return event.outcome === 'completed' ? 1 : 0
   return 0
 }
 
-type ActivityBucket = { start: number; end: number; events: Event[]; scores: Pair }
+type ActivityBucket = { start: number; availableStart: number; end: number; events: Event[]; scores: Pair }
 
-function MatchActivity({ events, teams, minute, onSeek }: {
-  events: Event[]; teams: Team[]; minute: number; onSeek: (minute: number) => void
+function MatchActivity({ events, teams, minute, onSeek, loading = false }: {
+  events: Event[]; teams: Team[]; minute: number; onSeek: (minute: number) => void; loading?: boolean
 }) {
   const [selectedStart, setSelectedStart] = useState<number | null>(null)
   // Snapshots expose a rolling recent-events window, not a complete match feed.
-  // Buckets cover only that supplied window; no unseen minutes are estimated.
-  const windowStart = Math.max(0, minute - 10)
+  // Clip labels to supplied integer minutes; the final bucket also includes minute 90.
+  // No unseen minutes are estimated.
+  const windowStart = Math.max(0, minute - 9)
   const visible = events.filter(event => event.minute >= windowStart && event.minute <= minute)
-  const firstBucket = Math.floor(windowStart / 5) * 5
-  const lastBucket = Math.floor(minute / 5) * 5
+  const firstBucket = Math.min(85, Math.floor(windowStart / 5) * 5)
+  const lastBucket = Math.min(85, Math.floor(minute / 5) * 5)
   const buckets: ActivityBucket[] = []
   for (let start = firstBucket; start <= lastBucket; start += 5) {
-    const bucketEvents = visible.filter(event => event.minute >= start && event.minute < start + 5)
+    const bucketEvents = visible.filter(event => event.minute >= start && (event.minute < start + 5 || start === 85 && event.minute === 90))
     const scores: Pair = Object.fromEntries(teams.map(team => [team.id, bucketEvents
       .filter(event => event.team_id === team.id)
       .reduce((sum, event) => sum + activityPoints(event), 0)]))
-    buckets.push({ start, end: Math.min(90, start + 5), events: bucketEvents, scores })
+    buckets.push({ start, availableStart: Math.max(start, windowStart), end: Math.min(minute, start + 4 + (start === 85 ? 1 : 0)), events: bucketEvents, scores })
   }
   const selected = buckets.find(bucket => bucket.start === selectedStart) ?? buckets[buckets.length - 1]
   const maxScore = Math.max(1, ...buckets.flatMap(bucket => teams.map(team => bucket.scores[team.id] ?? 0)))
-  return <section className="activity-panel" aria-labelledby="activity-title">
+  return <section className="activity-panel" aria-labelledby="activity-title" aria-busy={loading}>
     <div className="section-head activity-head">
       <div><h2 id="activity-title">Match activity <span className="section-spark">✦</span></h2>
-        <p>Event-weighted attacking activity · available window {windowStart}'–{minute}'</p></div>
-      <span className="activity-pill">Transparent metric · not AI</span>
+        <p>Event-weighted attacking activity · available minutes {windowStart}'–{minute}' (inclusive)</p></div>
+      <span className="activity-pill" role="status">{loading ? 'Loading replay · showing minute ' + minute : 'Transparent metric · not AI'}</span>
     </div>
     <div className="activity-legend" aria-label="Teams">
       {teams.map((team, index) => <span key={team.id}><i className={'activity-key activity-key-' + index} />{team.name}</span>)}
@@ -136,20 +137,20 @@ function MatchActivity({ events, teams, minute, onSeek }: {
       {buckets.map(bucket => <button type="button" key={bucket.start}
         className={'activity-bucket' + (selected?.start === bucket.start ? ' is-selected' : '')}
         aria-pressed={selected?.start === bucket.start}
-        aria-label={`Minutes ${bucket.start} to ${bucket.end}: ${teams.map(team => `${team.name} ${bucket.scores[team.id] ?? 0} points`).join(', ')}`}
+        aria-label={`Minutes ${bucket.availableStart} through ${bucket.end} inclusive: ${teams.map(team => `${team.name} ${bucket.scores[team.id] ?? 0} points`).join(', ')}`}
         onClick={() => setSelectedStart(bucket.start)}>
         <span className="activity-bars">
           {teams.map((team, index) => <span key={team.id} className={'activity-bar activity-bar-' + index}
             style={{ height: `${Math.max(3, (bucket.scores[team.id] ?? 0) / maxScore * 100)}%` }}
             title={`${team.name}: ${bucket.scores[team.id] ?? 0} activity points`} />)}
         </span>
-        <span className="activity-tick">{bucket.start}'</span>
+        <span className="activity-tick">{bucket.availableStart}'</span>
       </button>)}
     </div>
     {selected && <div className="activity-details">
-      <div className="activity-details-top"><div><strong>{selected.start}'–{selected.end}' interval</strong>
+      <div className="activity-details-top"><div><strong>{selected.availableStart}'–{selected.end}' inclusive interval</strong>
         <p>{selected.events.length} recorded events in the available window</p></div>
-        <button type="button" className="activity-seek" onClick={() => onSeek(Math.min(90, selected.end))}>Replay to {selected.end}' ↗</button>
+        <button type="button" className="activity-seek" aria-disabled={loading} onClick={() => { if (!loading) onSeek(selected.end) }}>Replay to {selected.end}' ↗</button>
       </div>
       <div className="activity-score-row">{teams.map((team, index) => <span key={team.id}>
         <i className={'activity-key activity-key-' + index} />{team.name} <strong>{selected.scores[team.id] ?? 0} pts</strong>
@@ -161,7 +162,7 @@ function MatchActivity({ events, teams, minute, onSeek }: {
         <small>+{activityPoints(event)} pts · {event.id}</small>
       </li>)}</ul> : <p className="activity-empty">No supplied events in this interval.</p>}
     </div>}
-    <p className="activity-method">How it's scored: completed pass +1 · shot +4 · goal +8 · possession change +2 · successful tackle +2. Failed or unknown passes and failed tackles +0. Goals are counted as their own event, not as an additional shot. This is a custom event-activity index, not a measure of true momentum or team dominance. Empty intervals may reflect the API's limited recent-event window.</p>
+    <p className="activity-method">How it's scored: completed pass +1 · shot +4 · goal +8 · possession change +2 · successful tackle +2. Failed or unknown passes and tackles +0. Goals are counted as their own event, not as an additional shot. This is a custom event-activity index, not a measure of true momentum or team dominance. Only available minutes are shown; edge intervals may be partial. The final interval includes minute 90.</p>
   </section>
 }
 
@@ -245,6 +246,7 @@ function App() {
   }, [minute, snapshotAttempt, previewMode])
 
   const current = previewMode ? demoSnapshot(minute) : snapshot?.minute === minute ? snapshot : null
+  const activitySnapshot = previewMode ? current : snapshot
   const selected = current?.insights.find(insight => insight.id === selectedId)
   const version = current?.fixture_version
   useEffect(() => {
@@ -306,7 +308,7 @@ function App() {
       <span className="synthetic-label">Synthetic match data</span>
     </header>
     <main id="match" className="dashboard">
-      <div className="page-intro"><div><span className="eyebrow">THE FUTURE OF MATCH INTELLIGENCE</span><h1>Every moment. <span>Explained.</span></h1><p>Explore a fictional football match through evidence-backed insights, real-time replay and fan-friendly analysis.</p></div><div className="data-mode"><span className="mode-label">DATA SOURCE</span><div className="data-toggle" role="group" aria-label="Match data source"><button className={!previewMode ? 'active' : ''} aria-pressed={!previewMode} onClick={() => { setPlaying(false); setSelectedId(null); setPreviewMode(false) }}>Team API</button><button className={previewMode ? 'active' : ''} aria-pressed={previewMode} onClick={() => { setPlaying(false); setSelectedId(null); setPreviewMode(true) }}>Local preview</button></div><small>{previewMode ? 'Small sample dataset · template explanations · not live AI' : 'Connected to your team’s match API when available'}</small></div></div>
+      <div className="page-intro"><div><span className="eyebrow">THE FUTURE OF MATCH INTELLIGENCE</span><h1>Every moment. <span>Explained.</span></h1><p>Explore a fictional football match through evidence-backed insights, real-time replay and fan-friendly analysis.</p></div><div className="data-mode"><span className="mode-label">DATA SOURCE</span><div className="data-toggle" role="group" aria-label="Match data source"><button className={!previewMode ? 'active' : ''} aria-pressed={!previewMode} onClick={() => { setPlaying(false); setSelectedId(null); if (previewMode) setSnapshot(null); setPreviewMode(false) }}>Team API</button><button className={previewMode ? 'active' : ''} aria-pressed={previewMode} onClick={() => { setPlaying(false); setSelectedId(null); if (!previewMode) setSnapshot(null); setPreviewMode(true) }}>Local preview</button></div><small>{previewMode ? 'Small sample dataset · template explanations · not live AI' : 'Connected to your team’s match API when available'}</small></div></div>
       <section className="match-hero" aria-labelledby="match-title">
         <div className="hero-top"><p id="match-title">MATCH CENTER <span className="hero-live-dot">●</span> {previewMode ? 'LOCAL PREVIEW' : 'API REPLAY'}</p><span>{current ? 'Fixture ' + current.fixture_version : 'Awaiting match data'}</span></div>
         {current ? <div className="scoreboard" aria-label={home.name + ' ' + current.score[home.id] + ', ' + away.name + ' ' + current.score[away.id]}>
@@ -322,13 +324,13 @@ function App() {
         <div className="transport"><div className="transport-buttons"><button className="primary-button" disabled={snapshotLoading || !!snapshotError} onClick={() => minute === 90 ? seek(0) : setPlaying(value => !value)} aria-label={minute === 90 ? 'Replay from start' : playing ? 'Pause replay' : 'Play replay'}>{minute === 90 ? '↺ Replay' : playing ? 'Ⅱ Pause' : '▶ Play'}</button><button onClick={() => seek(0)} disabled={minute === 0}>Reset</button><button onClick={() => seek(90)} disabled={minute === 90}>Jump to full time</button></div><div className="speed-group" aria-label="Replay speed"><span>Speed</span>{speeds.map(value => <button key={value} aria-pressed={speed === value} className={speed === value ? 'active' : ''} onClick={() => setSpeed(value)}>{value}×</button>)}</div></div>
       </section>
       {snapshotError && !current && snapshot && <p className="inline-error" role="alert">Replay paused. {snapshotError}</p>}
-      {current && <>
-        <section className="stats-panel" aria-labelledby="stats-title"><div className="section-head"><h2 id="stats-title">Match intelligence</h2><p>Through minute {minute}</p></div><div className="stats-grid">{([['Possession', 'possession_percent', '%'], ['Shots', 'shots', ''], ['Passes', 'passes', '']] as const).map(([label, key, suffix]) => {
+      {current && <section className="stats-panel" aria-labelledby="stats-title"><div className="section-head"><h2 id="stats-title">Match intelligence</h2><p>Through minute {minute}</p></div><div className="stats-grid">{([['Possession', 'possession_percent', '%'], ['Shots', 'shots', ''], ['Passes', 'passes', '']] as const).map(([label, key, suffix]) => {
           const left = current.stats[key][home.id] ?? 0
           const right = current.stats[key][away.id] ?? 0
           return <div className="stat" key={key}><div><strong>{left}{suffix}</strong><span>{label}</span><strong>{right}{suffix}</strong></div><div className="stat-track" role="img" aria-label={label + ': ' + home.name + ' ' + left + suffix + ', ' + away.name + ' ' + right + suffix}><span style={{ width: (left + right ? left / (left + right) * 100 : 50) + '%' }} /></div></div>
-        })}</div></section>
-        <MatchActivity events={current.recent_events} teams={teams} minute={minute} onSeek={seek} />
+        })}</div></section>}
+      {activitySnapshot && <MatchActivity key={(previewMode ? 'preview:' : 'api:') + activitySnapshot.fixture_version} events={activitySnapshot.recent_events} teams={activitySnapshot.teams} minute={activitySnapshot.minute} onSeek={seek} loading={!current} />}
+      {current && <>
         <div className="content-grid">
           <section className="insights-panel" aria-labelledby="insights-title"><div className="section-head insight-head"><div><h2 id="insights-title">✦ Insight center</h2><p>Every insight links to verified events</p></div><div className="mode-switch" role="group" aria-label="Explanation mode"><button aria-pressed={mode === 'fan'} className={mode === 'fan' ? 'active' : ''} onClick={() => setMode('fan')}>Fan</button><button aria-pressed={mode === 'analyst'} className={mode === 'analyst' ? 'active' : ''} onClick={() => setMode('analyst')}>Analyst</button></div></div>
             {insightList.length === 0 ? <div className="empty-state"><strong>No insights yet</strong><p>Play or jump ahead to see evidence-backed moments.</p></div> : <div className="insight-list">{insightList.map(insight => <article className={'insight-card ' + (selectedId === insight.id ? 'selected' : '')} key={insight.id}><button className="insight-select" aria-expanded={selectedId === insight.id} onClick={() => setSelectedId(selectedId === insight.id ? null : insight.id)}><span className={'insight-icon ' + insight.type} aria-hidden="true">{insight.type === 'goal' ? '●' : insight.type === 'shot_surge' ? '↗' : '↔'}</span><span className="insight-summary"><small>{insight.minute}' · {teams.find(team => team.id === insight.team_id)?.name ?? insight.team_id}</small><strong>{title(insight)}</strong><small>{insight.evidence_event_ids.length} supporting events</small></span><span className="open-icon" aria-hidden="true">{selectedId === insight.id ? '−' : '+'}</span></button>{selectedId === insight.id && <div className="insight-detail"><div className="explanation" aria-live="polite">{explanationLoading ? <p>Loading {mode} explanation…</p> : explanationError ? <div role="alert"><p>{explanationError}. Verified evidence is below.</p><button className="text-button" onClick={() => setExplanationAttempt(n => n + 1)}>Retry explanation</button></div> : explanation ? <><p>{explanation.text}</p><span className="source-tag">{source(explanation.source)}</span></> : null}</div><Evidence insight={insight} teams={teams} /></div>}</article>)}</div>}
