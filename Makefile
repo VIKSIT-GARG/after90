@@ -1,4 +1,4 @@
-.PHONY: setup test backend frontend build ai-evaluate ai-readiness ai-preview
+.PHONY: setup test backend frontend build ai-evaluate ai-readiness ai-preview integration-test browser-test
 
 setup:
 	python3 -m venv .venv
@@ -25,3 +25,9 @@ ai-readiness:
 
 ai-preview:
 	.venv/bin/python scripts/preview_ai.py --recap
+
+integration-test:
+	.venv/bin/python scripts/evaluate_integrated.py
+
+browser-test:
+	.venv/bin/python scripts/test_browser.py

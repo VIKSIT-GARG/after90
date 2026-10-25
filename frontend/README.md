@@ -32,3 +32,17 @@ clips partial edge intervals, and includes minute 90 in the final 85–90 interv
 During API loading it retains the previous activity panel, labelled with its snapshot
 minute, so interval selection and keyboard focus survive seeking. Switching data
 sources resets that panel.
+
+## Integrated narrative experience
+
+The UI consumes bounded-narrative HTTP responses with headline, exact analyst
+facts, limitations, provenance and an overlay. Template responses are not pinned
+in the browser cache; Refresh retries after the server's short failure cache.
+Real browser checks: `python scripts/test_browser.py` from the repository root,
+after installing Playwright Chromium. It starts a local server and strips model
+credentials from the test environment. Browser evidence is test output, not live
+Foundry evaluation.
+
+Optional team prioritization: build with `VITE_ENABLE_TEAM_FOCUS=true`. This
+feature is default-disabled pending the public-release gate. It changes story
+order only; all facts, evidence and insight records remain intact.

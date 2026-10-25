@@ -114,3 +114,13 @@ adds contextual evidence packets, paired audience generation, evaluated claim
 selection, a ranked story ledger and structured studio overlay output within the
 existing FastAPI/React application. Azure public release and Foundry proof remain
 external gates. Optional agents and other personalization follow a stable release.
+
+## October 25 integrated release update
+
+Phases 7/8 now connect bounded narratives to the public API and personalized UI,
+with versioned single-flight caches, failure recovery and synchronized studio
+graphics. Phase 9 includes local HTTP and real browser evaluation. Phase 10 has
+ARM/deploy preparation; phase 11 adds a default-disabled team-priority option.
+See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for actual evidence and
+external service/account/submission gates. Public Azure and real Foundry access
+are not implied by local completion.

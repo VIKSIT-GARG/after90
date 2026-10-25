@@ -2,8 +2,8 @@
 
 This is the shared contract for the AI delivery plan's Waves 1 and 2. The older
 five-phase plan describes the original MVP and is a separate sequence. The
-current snapshot/explanation/recap endpoints remain compatible; these models are
-internal service contracts until the API integration phase explicitly adds fields.
+snapshot/explanation/recap endpoints retain their core compatible fields and now
+include the integrated rich service contract documented in API_V2.md.
 
 The source models live in `backend/matchlens/ai_schemas.py`. Matching consumer
 types live in `frontend/src/ai-contracts.ts`. Synthetic match data remains visible
