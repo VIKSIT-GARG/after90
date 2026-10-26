@@ -68,6 +68,9 @@ The [public source repository](https://github.com/VIKSIT-GARG/after90) is availa
 
 ## AI implementation and release
 
+**AI audit (October 26):** [open findings and required follow-up](docs/AI_AUDIT.md).
+Live AI completeness is not yet signed off.
+
 See [API contracts](docs/API_V2.md), [delivery dependencies](docs/AI_DELIVERY.md),
 [current completion audit](docs/IMPLEMENTATION_STATUS.md), [release gates](docs/RELEASE_GATES.md),
 [Azure runbook](docs/AZURE_RELEASE.md), and [submission package](docs/SUBMISSION_PACKAGE.md).

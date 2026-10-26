@@ -1,6 +1,10 @@
 # After90 implementation and acceptance status
 
-Updated October 25, 2026. This is the current twelve-phase status. Local software
+**October 26 audit update:** [AI_AUDIT.md](AI_AUDIT.md) records ten open
+shortcomings. Live AI acceptance is not signed off; green local tests do not
+close the newly reproduced sparse-evidence, pattern-coverage and timeout gaps.
+
+Implementation checkpoint: October 25, 2026. This is the current twelve-phase status. Local software
 completion is separate from live-service, account and public-submission proof.
 
 | Phase | Software status | Remaining acceptance action |
