@@ -83,10 +83,19 @@ const artifactDir = process.env.AFTER90_ARTIFACTS || '/tmp/after90-browser-evide
       await audit(`mobile ${width}`)
     }
     await page.setViewportSize({ width: 1280, height: 900 })
-    await page.getByRole('button', { name: 'Local preview', exact: true }).click()
+        // Backend-only replay: source-switching buttons were removed.
+    assert.equal(
+      await page.getByRole('button', { name: 'Local preview', exact: true }).count(),
+      0
+    )
+    assert.equal(
+      await page.getByRole('button', { name: 'Team API', exact: true }).count(),
+      0
+    )
+
+    // Verify that replay and explanations still work through the API.
     await goal(57)
-    assert.match(await page.getByTestId('generation-notice').first().textContent(), /preview|template/i)
-    await page.getByRole('button', { name: 'Team API', exact: true }).click()
+    await page.getByTestId('generation-notice').first().waitFor()
     await goal(29)
     const seekControl = page.locator('.activity-seek')
     await seekControl.focus()
