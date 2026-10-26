@@ -110,7 +110,7 @@ function MatchActivity({ events, teams, minute, onSeek, loading = false }: {
       <div className="activity-score-row">{teams.map((team, index) => <span key={team.id}>
         <i className={'activity-key activity-key-' + index} />{team.name} <strong>{selected.scores[team.id] ?? 0} pts</strong>
       </span>)}</div>
-      {selected.events.length ? <ul className="activity-events">{selected.events.map(event => <li key={event.id}>
+      {selected.events.length ? <ul className="activity-events" tabIndex={0} aria-label="Recorded events in the selected activity interval">{selected.events.map(event => <li key={event.id}>
         <span>{event.minute}'{String(event.second).padStart(2, '0')}″</span>
         <strong>{eventTitle(event)}</strong>
         <span>{teams.find(team => team.id === event.team_id)?.name ?? event.team_id}</span>
