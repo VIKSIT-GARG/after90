@@ -186,7 +186,7 @@ def test_require_foundry_needs_explicit_live_opt_in(monkeypatch):
 
 @pytest.mark.parametrize('sources,expected_exit,expected_requirement', [
     ({'template': 3}, 1, 'failed'),
-    ({'template': 2, 'foundry': 1}, 0, 'passed'),
+    ({'template': 2, 'foundry': 1}, 1, 'failed'),
 ])
 def test_require_foundry_fails_when_live_service_only_falls_back(monkeypatch, capsys, sources, expected_exit, expected_requirement):
     monkeypatch.setattr('sys.argv', ['evaluate_integrated.py', '--live', '--require-foundry'])
@@ -205,3 +205,12 @@ def test_default_cli_still_passes_offline_without_foundry(monkeypatch, capsys):
     })
     assert evaluator.main() == 0
     assert json.loads(capsys.readouterr().out)['acceptance']['foundry_requirement'] == 'not_requested'
+
+
+def test_require_foundry_passes_only_complete_type_coverage(monkeypatch, capsys):
+    monkeypatch.setattr('sys.argv', ['evaluate_integrated.py', '--live', '--require-foundry'])
+    monkeypatch.setattr(evaluator, 'run_integrated', lambda **_: {
+        'failed': 0, 'acceptance': {},
+        'foundry_type_coverage': {kind: {'passed': True} for kind in evaluator.REQUIRED_AI_TYPES}})
+    assert evaluator.main() == 0
+    assert json.loads(capsys.readouterr().out)['acceptance']['foundry_requirement'] == 'passed'

@@ -20,7 +20,10 @@ def required_fact_ids(packet: ContextPacket) -> set[str]:
     if packet.insight_type == "possession_swing":
         return {f"possession_{period}_{packet.team_id}" for period in ("previous", "current", "delta")}
     if packet.insight_type == "recap":
-        return {"final_score", "selected_moment_ids", "story_summary", "goal_minutes"}
+        required = {"final_score", "selected_moment_ids", "story_summary", "goal_minutes"}
+        if any(fact.id == "possession_available" for fact in packet.facts):
+            required.add("possession_available")
+        return required
     return {fact.id for fact in packet.facts}
 
 

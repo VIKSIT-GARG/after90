@@ -112,8 +112,10 @@ def _deduplicate(patterns: list[StoryMoment], fixture: MatchFixture) -> list[Sto
 def build_story(fixture: MatchFixture, as_of_minute: int = 90, *, max_moments: int = 6) -> StoryLedger:
     """Build a canonical story as of a minute, without reading future match facts.
 
-    ``max_moments`` bounds non-goal selection, not the goal count: every goal is
-    preserved even when there are more goals than the requested presentation cap.
+    ``max_moments`` is a soft overall presentation target and a hard bound on
+    selected non-goal patterns. Every goal is preserved. When goals fill the
+    target, reserve a separate slot for each observed pattern type (up to the
+    non-goal bound), so score changes cannot erase the entire statistical story.
     Output order is chronological; ranking only chooses which patterns to show.
     """
     from .context import build_context
@@ -149,7 +151,12 @@ def build_story(fixture: MatchFixture, as_of_minute: int = 90, *, max_moments: i
     patterns = _deduplicate([item for item in moments if item["type"] != "goal"], fixture)
     ranked = sorted(patterns, key=lambda item: (-item["significance"], item["minute"], item["id"]))
     selected = list(goals)
-    remaining = max(0, max_moments - len(goals))
+    # Goals may exceed the soft presentation target. Reserve pattern slots
+    # independently instead of letting a high score consume the whole allowance.
+    # The reservation itself never exceeds max_moments non-goal entries.
+    observed_types = {item["type"] for item in ranked}
+    reserved_patterns = min(max_moments, len(observed_types))
+    remaining = max(reserved_patterns, max_moments - len(goals))
     # Represent distinct observed pattern types before filling extra slots.
     for kind in ("shot_surge", "possession_swing"):
         candidate = next((item for item in ranked if item["type"] == kind), None)
@@ -185,13 +192,27 @@ def build_recap_context(fixture: MatchFixture) -> ContextPacket:
     ledger = build_story(fixture, 90)
     final = snapshot_for_minute(fixture, 90)
     window = InclusiveWindow(start=0, end=90)
-    facts = [Fact(id="final_score", metric="score", value=final["score"], window=window)]
+    # Without a recorded possession transition the engine can still allocate
+    # time to its explicit initial holder, but that is an assumption, not a
+    # measured possession comparison. Keep those numbers out of AI evidence.
+    possession_available = any(event.type == "possession_change" for event in fixture.events)
+    facts = [
+        Fact(id="final_score", metric="score", value=final["score"], window=window),
+        Fact(id="possession_available", metric="possession_available", value=int(possession_available)),
+    ]
+    recap_stats = [
+        ("shots", "shot_count", "shots", "shots"),
+        ("passes", "pass_count", "passes", "passes"),
+    ]
+    if possession_available:
+        recap_stats.append(("possession", "possession_percent", "possession_percent", "%"))
+    else:
+        ledger["limitations"].append(
+            "Measured possession is unavailable: no possession-change events were recorded; "
+            "initial-holder allocation is an assumption."
+        )
     for team in fixture.teams:
-        for prefix, metric, stats_key, unit in [
-            ("shots", "shot_count", "shots", "shots"),
-            ("passes", "pass_count", "passes", "passes"),
-            ("possession", "possession_percent", "possession_percent", "%"),
-        ]:
+        for prefix, metric, stats_key, unit in recap_stats:
             facts.append(Fact(id=f"{prefix}_{team.id}", metric=metric,
                               value=final["stats"][stats_key][team.id], team_id=team.id,
                               unit=unit, window=window))

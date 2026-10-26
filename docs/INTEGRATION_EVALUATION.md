@@ -24,8 +24,9 @@ routes do not generate narratives. Generation routes are deliberately skipped
 because the remote server might call its configured provider. `--live` explicitly
 allows those requests; a resulting template fallback remains a fallback and is
 not live Foundry evidence. Local `--live` allows the actual configured adapter.
-`--require-foundry` requires `--live` and makes the command fail unless at least
-one observed generation response reports accepted Foundry selection. Use both
+`--require-foundry` requires `--live` and makes the command fail unless both modes of every required type (`goal`, `shot_surge`,
+`possession_swing`, and `recap`) report accepted Foundry selection. One successful
+goal response cannot cover the other types. Use both
 flags for the live-service release gate; plain `--live` intentionally permits a
 healthy fallback-only service to pass its functional checks. This additional
 requirement does not independently attest a remote application's provenance.
@@ -43,10 +44,10 @@ The full local run has eight checks:
 1. Health and the synthetic-data flag.
 2. Replay snapshots, possession totals and canonical goal availability.
 3. Story cutoffs before kick-off and at full time.
-4. Paired modes preserve the same facts and selected evidence.
+4. Both modes of goal, shot surge and possession swing preserve the same facts and selected evidence.
 5. Responses conform to the bounded narrative contract and retain limitations.
 6. A cached future insight remains unavailable when seeking backwards.
-7. Recap facts match the final snapshot; early recap requests are rejected.
+7. Both recap modes preserve the same selected facts and final snapshot; early recap requests are rejected.
 8. Typed overlay provenance and timestamp do not exceed the replay cutoff.
 
 The regression tests additionally prove the HTTP routes bypass the legacy
@@ -81,3 +82,14 @@ On October 25, 2026: **18 integration regression tests passed**, and the default
 runner passed **8/8 HTTP checks** with deterministic offline templates. No live
 Foundry request or public deployment was established by this run. Re-run after
 API or service changes and retain the full JSON report for the actual release.
+
+## Uncached provider and human comparison gate
+
+Run `python scripts/evaluate_live_ai.py --live --require-foundry` to evaluate
+every golden insight (12) plus recap directly, bypassing the shared service cache.
+All 13 contexts must produce accepted actual-provider selections, covering all
+four types. Injected test clients never satisfy this gate. The direct runner
+separates provider request time, generation service time and total direct-call
+time; HTTP timing belongs to this integrated runner. See
+[AI_EVALUATION.md](AI_EVALUATION.md) for usage telemetry and blinded review export.
+A passing provider gate still leaves human usefulness review pending.

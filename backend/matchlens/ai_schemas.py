@@ -140,15 +140,31 @@ class NarrativeOutput(ContractModel):
         return self
 
 
+class ProviderTelemetry(ContractModel):
+    """Optional provider facts; request wall time is not pure inference latency."""
+
+    provider_response_id: str | None = Field(default=None, max_length=256)
+    provider_request_id: str | None = Field(default=None, max_length=256)
+    provider_model: str | None = Field(default=None, max_length=256)
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    total_tokens: int | None = Field(default=None, ge=0)
+    provider_request_ms: float | None = Field(default=None, ge=0)
+
+
 class GenerationMetadata(ContractModel):
     source: Source
     fallback_reason: str | None
     model_version: str = Field(min_length=1)
     prompt_version: str = Field(min_length=1)
     latency_ms: float = Field(ge=0)
+    provider_attempted: bool = False
+    provider: ProviderTelemetry | None = None
 
     @model_validator(mode="after")
     def truthful_source(self) -> Self:
+        if self.provider is not None and not self.provider_attempted:
+            raise ValueError("provider telemetry requires an actual provider attempt")
         if self.source == "foundry" and self.fallback_reason is not None:
             raise ValueError("Foundry output must not have a fallback reason")
         if self.source == "template" and (self.fallback_reason is None or not self.fallback_reason.strip()):

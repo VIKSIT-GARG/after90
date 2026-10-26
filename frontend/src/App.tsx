@@ -8,7 +8,7 @@ type Team = { id: string; name: string }
 type Event = { id: string; minute: number; second: number; type: string; team_id: string; player_id: string | null; outcome: string | null; related_event_id: string | null }
 type Insight = { id: string; type: string; minute: number; team_id: string; evidence_event_ids: string[]; evidence: Record<string, unknown> }
 type Stats = { shots: Pair; passes: Pair; possession_percent: Pair }
-type Snapshot = { match_id: string; fixture_version: string; synthetic: boolean; minute: number; teams: Team[]; score: Pair; stats: Stats; recent_events: Event[]; insights: Insight[] }
+type Snapshot = { match_id: string; fixture_version: string; synthetic: boolean; minute: number; teams: Team[]; score: Pair; stats: Stats; possession_available?: boolean; recent_events: Event[]; insights: Insight[] }
 type Explanation = IntelligenceFields & { insight_id: string; mode: Mode; text: string; evidence: Record<string, unknown>; source: 'foundry' | 'template' }
 type Recap = IntelligenceFields & { mode: Mode; text: string; final_score: Pair; stats: Stats; moment_ids: string[]; source: 'foundry' | 'template' }
 
@@ -52,7 +52,7 @@ function demoSnapshot(minute: number): Snapshot {
       player_id: event.player_id,
     }
   }))
-  return { match_id: 'after90-local-preview', fixture_version: 'local-preview-1', synthetic: true, minute, teams: DEMO_TEAMS,
+  return { match_id: 'after90-local-preview', fixture_version: 'local-preview-1', synthetic: true, minute, teams: DEMO_TEAMS, possession_available: false,
     score: { northstar: homeGoals, copper: awayGoals },
     stats: { shots: { northstar: homeShots, copper: awayShots },
       passes: { northstar: Math.floor(minute * 2.8), copper: Math.floor(minute * 2.1) },
@@ -71,7 +71,7 @@ function demoExplanation(insight: Insight, mode: Mode): Explanation {
 }
 function demoRecap(mode: Mode): Recap {
   const final = demoSnapshot(90)
-  return { mode, final_score: final.score, stats: final.stats, moment_ids: final.insights.map(i => i.id), source: 'template',
+  return { mode, final_score: final.score, stats: final.stats, possession_available: false, moment_ids: final.insights.map(i => i.id), source: 'template',
     text: mode === 'fan' ? 'In this fictional match, Northstar Quay won 2–1 against Copper Vale. The deciding goal came in minute 84. This is a preview recap, not AI-generated commentary.'
       : 'Synthetic fixture summary: Northstar Quay 2–1 Copper Vale. Goals at 29, 57 and 84 minutes. Figures are derived from the small local preview dataset, not the team’s full match simulation.' }
 }
@@ -234,10 +234,11 @@ function factLabel(fact: Fact): string {
   if (fact.id.startsWith('goals_before_')) return 'Goals before'
   if (fact.id.startsWith('goals_after_')) return 'Goals after'
   return ({ score_before: 'Score before', score_after: 'Score after', final_score: 'Final score',
-    goal_count: 'Goals', shot_count: 'Shots', pass_count: 'Passes', possession_percent: 'Measured possession',
+    goal_count: 'Goals', shot_count: 'Shots', pass_count: 'Passes', possession_available: 'Measured possession', possession_percent: 'Measured possession',
     possession_change_points: 'Possession change', scorer_name: 'Scorer' } as Record<string, string>)[fact.metric] ?? 'Recorded fact'
 }
 function factValue(fact: Fact, context: ContextPacket): string | null {
+  if (fact.id === 'possession_available' || fact.metric === 'possession_available') return fact.value === 0 ? 'Unavailable' : 'Available'
   if (typeof fact.value === 'number') return String(fact.value) + ((fact.unit === 'percent' || fact.unit === '%') ? '%' : fact.unit === 'percentage_points' ? ' percentage points' : '')
   if (typeof fact.value === 'string') return fact.value
   if (fact.value && !Array.isArray(fact.value) && typeof fact.value === 'object'
@@ -249,12 +250,17 @@ function factValue(fact: Fact, context: ContextPacket): string | null {
 function AnalystFacts({ narrative }: { narrative: NarrativeResult }) {
   const context = narrative.evidence
   const selected = new Set(narrative.selected_fact_ids)
-  const facts = context.facts.filter(fact => selected.has(fact.id) && factValue(fact, context) !== null)
+  const possessionUnavailable = context.facts.some(fact => (fact.id === 'possession_available' || fact.metric === 'possession_available') && fact.value === 0)
+  const facts = context.facts.filter(fact => selected.has(fact.id) && !(possessionUnavailable && fact.metric === 'possession_percent') && factValue(fact, context) !== null)
   return <div className="analyst-facts" data-testid="analyst-facts"><strong>Recorded facts and windows</strong>
     <dl>{facts.map(fact => <div key={fact.id}><dt>{factLabel(fact)}{fact.team_id ? ' · ' + context.teams[fact.team_id] : ''}
       {fact.window ? <small>Minutes {fact.window.start}–{fact.window.end}, inclusive</small> : null}</dt>
       <dd>{factValue(fact, context)}</dd></div>)}</dl>
   </div>
+}
+function StatComparison({ label, left, right, suffix, home, away, available = true }: { label: string; left: number; right: number; suffix: string; home: Team; away: Team; available?: boolean }) {
+  if (!available) return <div className="stat"><div><span>{label}</span><strong>Unavailable</strong></div><p>No recorded possession changes; initial-holder allocation is an assumption.</p></div>
+  return <div className="stat"><div><strong>{left}{suffix}</strong><span>{label}</span><strong>{right}{suffix}</strong></div><div className="stat-track" role="img" aria-label={label + ': ' + home.name + ' ' + left + suffix + ', ' + away.name + ' ' + right + suffix}><span style={{ width: (left + right ? left / (left + right) * 100 : 50) + '%' }} /></div></div>
 }
 function Limitations({ values }: { values: string[] }) {
   return values.length ? <div className="insight-limitations"><strong>Evidence limits</strong><ul>{values.map(value => <li key={value}>{value}</li>)}</ul></div> : null
@@ -422,7 +428,7 @@ function App() {
       {display && <section className="stats-panel" aria-labelledby="stats-title" aria-busy={!current}><div className="section-head"><h2 id="stats-title">Match intelligence</h2><p>{!current ? 'Previous snapshot · ' : ''}Through minute {displayMinute}</p></div><div className="stats-grid">{([['Possession', 'possession_percent', '%'], ['Shots', 'shots', ''], ['Passes', 'passes', '']] as const).map(([label, key, suffix]) => {
           const left = display.stats[key][home.id] ?? 0
           const right = display.stats[key][away.id] ?? 0
-          return <div className="stat" key={key}><div><strong>{left}{suffix}</strong><span>{label}</span><strong>{right}{suffix}</strong></div><div className="stat-track" role="img" aria-label={label + ': ' + home.name + ' ' + left + suffix + ', ' + away.name + ' ' + right + suffix}><span style={{ width: (left + right ? left / (left + right) * 100 : 50) + '%' }} /></div></div>
+          return <StatComparison key={key} label={label} left={left} right={right} suffix={suffix} home={home} away={away} available={key !== 'possession_percent' || display.possession_available !== false} />
         })}</div></section>}
       {display && <MatchActivity key={sourceKey + ':' + display.fixture_version} events={display.recent_events} teams={teams} minute={displayMinute} onSeek={seek} loading={!current} />}
       {display && <>
@@ -441,7 +447,7 @@ function App() {
           <section className="events-panel" aria-labelledby="events-title"><div className="section-head"><h2 id="events-title">Match timeline</h2><p>{!current ? 'Previous snapshot · ' : ''}Latest events through minute {displayMinute}</p></div>{eventList.length === 0 ? <div className="empty-state"><strong>No recent recorded events</strong><p>Events appear as the replay advances.</p></div> : <ol className="event-list" tabIndex={0} aria-label="Recent recorded match events">{eventList.map(event => <li key={event.id} className={event.type === 'goal' ? 'goal-event' : ''}><time>{event.minute}'{String(event.second).padStart(2, '0')}″</time><span className="event-dot" aria-hidden="true" /><div><strong>{eventTitle(event)}</strong><p>{teams.find(team => team.id === event.team_id)?.name ?? event.team_id}{event.player_id ? ' · ' + event.player_id : ''}</p><small>{event.id}{event.related_event_id ? ' · linked shot ' + event.related_event_id : ''}</small></div></li>)}</ol>}</section>
         </div>
         <StudioOverlay overlay={overlay} minute={minute} preview={previewMode} />
-        {minute === 90 && current && <section className="recap-panel" aria-labelledby="recap-title" data-testid="full-time-recap"><div className="recap-head"><div><span>90'</span><h2 id="recap-title">Full-time recap</h2></div><small>{mode === 'fan' ? 'Fan view' : 'Analyst view'}</small></div>{recapLoading ? <p role="status">Loading full-time recap…</p> : recapError ? <div role="alert"><p>The recap could not be loaded. Final match numbers remain available above.</p><button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Retry recap</button></div> : recap ? <><p className="recap-text">{recap.text}</p><GenerationNotice value={recap} preview={previewMode} />{!previewMode && recap.source === 'template' && <button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Refresh recap</button>}{mode === 'analyst' && recap.narrative && <AnalystFacts narrative={recap.narrative} />}<Limitations values={recap.limitations ?? recap.narrative?.limitations ?? []} /><div className="recap-meta"><span>{recap.moment_ids.length ? 'Based on insights: ' + recap.moment_ids.join(', ') : 'Based on final match facts'}</span></div></> : null}</section>}
+        {minute === 90 && current && <section className="recap-panel" aria-labelledby="recap-title" data-testid="full-time-recap"><div className="recap-head"><div><span>90'</span><h2 id="recap-title">Full-time recap</h2></div><small>{mode === 'fan' ? 'Fan view' : 'Analyst view'}</small></div>{recapLoading ? <p role="status">Loading full-time recap…</p> : recapError ? <div role="alert"><p>The recap could not be loaded. Final match numbers remain available above.</p><button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Retry recap</button></div> : recap ? <><p className="recap-text">{recap.text}</p>{recap.possession_available === false && <p>Measured possession is unavailable: no possession-change events were recorded; initial-holder allocation is an assumption.</p>}<GenerationNotice value={recap} preview={previewMode} />{!previewMode && recap.source === 'template' && <button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Refresh recap</button>}{mode === 'analyst' && recap.narrative && <AnalystFacts narrative={recap.narrative} />}<Limitations values={recap.limitations ?? recap.narrative?.limitations ?? []} /><div className="recap-meta"><span>{recap.moment_ids.length ? 'Based on insights: ' + recap.moment_ids.join(', ') : 'Based on final match facts'}</span></div></> : null}</section>}
       </>}
     </main><footer className="site-footer"><span>AFTER90 · Understand every moment</span><span>{previewMode ? 'Local fictional preview · no live AI' : 'Synthetic match data · Team API'}</span></footer>
   </div>

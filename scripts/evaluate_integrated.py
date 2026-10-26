@@ -23,6 +23,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 MAX_BYTES = 2 * 1024 * 1024
+REQUIRED_AI_TYPES = ("goal", "shot_surge", "possession_swing", "recap")
 
 
 def percentile(values: list[float], fraction: float) -> float | None:
@@ -127,20 +128,22 @@ def _evaluate(get: Callable, *, generation: bool, provenance: str) -> dict:
     check("story-cutoff", story)
     if generation:
         def modes():
-            goal = state["goal"]
-            fan = fetch(f"/api/matches/demo/insights/{goal['id']}?mode=fan&as_of_minute={goal['minute']}")
-            analyst = fetch(f"/api/matches/demo/insights/{goal['id']}?mode=analyst&as_of_minute={goal['minute']}")
             from backend.matchlens.ai_schemas import NarrativeResult, Overlay
-            for response in (fan, analyst):
-                NarrativeResult.model_validate(response["narrative"])
-                Overlay.model_validate(response["overlay"])
-                assert response["source"] == response["narrative"]["source"] == response["metadata"]["source"]
-                assert response["synthetic"] is True
-            assert fan["text"] != analyst["text"]
-            assert fan["evidence"] == analyst["evidence"]
-            assert fan["narrative"]["selected_fact_ids"] == analyst["narrative"]["selected_fact_ids"]
-            assert fan["narrative"]["evidence"]["as_of_minute"] <= goal["minute"]
-            state["fan"] = fan
+            for kind in REQUIRED_AI_TYPES[:-1]:
+                card = next(item for item in state["final"]["insights"] if item["type"] == kind)
+                fan = fetch(f"/api/matches/demo/insights/{card['id']}?mode=fan&as_of_minute={card['minute']}")
+                analyst = fetch(f"/api/matches/demo/insights/{card['id']}?mode=analyst&as_of_minute={card['minute']}")
+                for response in (fan, analyst):
+                    NarrativeResult.model_validate(response["narrative"])
+                    Overlay.model_validate(response["overlay"])
+                    assert response["source"] == response["narrative"]["source"] == response["metadata"]["source"]
+                    assert response["synthetic"] is True
+                assert fan["text"] != analyst["text"]
+                assert fan["evidence"] == analyst["evidence"]
+                assert fan["narrative"]["selected_fact_ids"] == analyst["narrative"]["selected_fact_ids"]
+                assert fan["narrative"]["evidence"]["as_of_minute"] <= card["minute"]
+                if kind == "goal":
+                    state["fan"] = fan
         check("paired-mode-facts", modes)
         def no_legacy_path():
             fan = state["fan"]
@@ -154,9 +157,12 @@ def _evaluate(get: Callable, *, generation: bool, provenance: str) -> dict:
             assert code in (404, 409)
         check("future-insight-unavailable", future)
         def recap():
+            fan = fetch("/api/matches/demo/recap?mode=fan&as_of_minute=90")
             payload = fetch("/api/matches/demo/recap?mode=analyst&as_of_minute=90")
-            assert payload["final_score"] == state["final"]["score"]
-            assert payload["stats"] == state["final"]["stats"]
+            assert payload["final_score"] == state["final"]["score"] == fan["final_score"]
+            assert payload["stats"] == state["final"]["stats"] == fan["stats"]
+            assert payload["text"] != fan["text"]
+            assert payload["narrative"]["selected_fact_ids"] == fan["narrative"]["selected_fact_ids"]
             code, _ = get("/api/matches/demo/recap?as_of_minute=20")
             assert code == 409
         check("recap-canonical-facts", recap)
@@ -171,6 +177,7 @@ def _evaluate(get: Callable, *, generation: bool, provenance: str) -> dict:
     sources, reasons = Counter(), Counter()
     service_latencies = []
     baselines = []
+    coverage = {kind: {"observed_responses": 0, "accepted_foundry_responses": 0, "passed": False} for kind in REQUIRED_AI_TYPES}
     for obs in observations:
         payload = obs["payload"]
         narrative = payload.get("narrative")
@@ -178,6 +185,11 @@ def _evaluate(get: Callable, *, generation: bool, provenance: str) -> dict:
             continue
         source = narrative.get("source", "unknown")
         sources[source] += 1
+        kind = narrative.get("evidence", {}).get("insight_type")
+        if kind in coverage:
+            coverage[kind]["observed_responses"] += 1
+            if source == "foundry" and narrative.get("selection_accepted") is True and narrative.get("selection_source") == "foundry":
+                coverage[kind]["accepted_foundry_responses"] += 1
         metadata = narrative.get("metadata", {})
         reason = metadata.get("fallback_reason")
         if reason:
@@ -188,6 +200,9 @@ def _evaluate(get: Callable, *, generation: bool, provenance: str) -> dict:
                           "selected_fact_count": len(narrative.get("selected_fact_ids", [])),
                           "paired_wording_differs": narrative.get("fan_explanation") != narrative.get("analyst_explanation")})
     count = sum(sources.values())
+    for item in coverage.values():
+        item["passed"] = item["observed_responses"] >= 2 and item["accepted_foundry_responses"] == item["observed_responses"]
+    all_types_foundry = all(item["passed"] for item in coverage.values())
     return {
         "schema_version": "1.0", "synthetic": True, "transport": provenance,
         "generation_requests_enabled": generation,
@@ -197,6 +212,7 @@ def _evaluate(get: Callable, *, generation: bool, provenance: str) -> dict:
         "generation_service_latency_ms": latency_summary(service_latencies),
         "provider_inference_latency_ms": {"status": "not_measured", "p50": None, "p95": None},
         "response_source_counts": dict(sources), "response_fallback_reasons": dict(reasons),
+        "required_ai_types": list(REQUIRED_AI_TYPES), "foundry_type_coverage": coverage,
         "response_fallback_rate": round(sources["template"] / count, 4) if count else None,
         "metric_limitations": ["Response counts can include cached paired-mode responses; they are not independent model attempts.",
                                "API latency includes HTTP/application work. Generation-service latency includes adapter, validation and rendering, not pure model inference.",
@@ -205,7 +221,7 @@ def _evaluate(get: Callable, *, generation: bool, provenance: str) -> dict:
                               "human_preference_or_ai_improvement": "not_measured"},
         "acceptance": {"generation_contract_checks": "passed" if generation and all(c["status"] == "passed" for c in checks) else "failed" if generation else "not_run",
                        "deterministic_http_checks": "passed" if all(c["status"] == "passed" for c in checks) else "failed",
-                       "live_foundry": "application_reported" if sources["foundry"] else "not_demonstrated",
+                       "live_foundry": "application_reported_all_required_types" if all_types_foundry else "incomplete_type_coverage" if sources["foundry"] else "not_demonstrated",
                        "human_usefulness": "pending_human_review", "browser_accessibility": "not_measured",
                        "public_azure_deployment": "not_attested"},
     }
@@ -222,7 +238,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", help="Application base URL, never a model endpoint or credential-bearing URL")
     parser.add_argument("--live", action="store_true", help="Explicitly allow generation that may contact configured Foundry")
-    parser.add_argument("--require-foundry", action="store_true", help="Fail unless a response reports accepted Foundry selection; requires --live")
+    parser.add_argument("--require-foundry", action="store_true", help="Fail unless both modes of every required insight type and recap report accepted Foundry selection; requires --live")
     args = parser.parse_args()
     if args.require_foundry and not args.live:
         parser.error("--require-foundry requires --live")
@@ -231,7 +247,8 @@ def main() -> int:
     except Exception as exc:
         print(json.dumps({"status": "blocked", "error_type": type(exc).__name__, "details": "Evaluation could not start; inspect local configuration without exposing secrets."}))
         return 2
-    foundry_observed = report.get("response_source_counts", {}).get("foundry", 0) > 0
+    coverage = report.get("foundry_type_coverage", {})
+    foundry_observed = all(coverage.get(kind, {}).get("passed") is True for kind in REQUIRED_AI_TYPES)
     report["acceptance"]["foundry_requirement"] = (
         "passed" if foundry_observed else "failed"
     ) if args.require_foundry else "not_requested"

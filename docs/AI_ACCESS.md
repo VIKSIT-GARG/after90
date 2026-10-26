@@ -43,9 +43,21 @@ not establish that a particular resource supports Responses or structured output
 Private/custom endpoints and sovereign-cloud domains require a deliberate code
 change and review rather than a permissive override.
 
-`.env.example` contains names only. Neither the readiness script nor the backend
-automatically loads `.env`; provide the variables in the process environment or
-through the deployment's secret configuration. Do not commit a populated `.env`.
+`.env.example` contains names only. Copy it to `.env` and fill in private local
+configuration, then run `bash run.sh`. The startup wrapper explicitly loads the
+repository-root `.env` before starting the backend. Existing process variables
+always win, and values are parsed without variable interpolation or shell
+execution. A missing file preserves the labelled offline fallback; malformed
+files fail startup with a sanitized message. Importing backend modules does not
+load files. Direct backend or script invocations use their process environment;
+use the same explicit wrapper when they should read `.env`:
+
+```sh
+.venv/bin/python -m backend.matchlens.env --run .venv/bin/python scripts/check_ai_readiness.py --live --timeout 5
+```
+
+Use deployment secret configuration in hosted environments. Do not commit a
+populated `.env`.
 Azure CLI login and optional `AZURE_*` identity variables are deployment context;
 they do not substitute for `FOUNDRY_API_KEY` in the current key-based adapter.
 

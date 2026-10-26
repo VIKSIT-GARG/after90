@@ -7,14 +7,14 @@ const React = require('react')
 const { renderToStaticMarkup } = require('react-dom/server')
 
 function appModule() {
-  const source = fs.readFileSync('src/App.tsx', 'utf8').replace("import './App.css'", '').replaceAll("import.meta.env.VITE_ENABLE_TEAM_FOCUS", "undefined") + '\nexport { cacheDuration, GenerationNotice, AnalystFacts, StudioOverlay, prioritizeInsights }'
+  const source = fs.readFileSync('src/App.tsx', 'utf8').replace("import './App.css'", '').replaceAll("import.meta.env.VITE_ENABLE_TEAM_FOCUS", "undefined") + '\nexport { cacheDuration, GenerationNotice, AnalystFacts, StudioOverlay, prioritizeInsights, StatComparison }'
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
   const context = { exports: {}, require }
   vm.runInNewContext(compiled, context)
   return context
 }
 const moduleContext = appModule()
-const { cacheDuration, GenerationNotice, AnalystFacts, StudioOverlay, prioritizeInsights } = moduleContext.exports
+const { cacheDuration, GenerationNotice, AnalystFacts, StudioOverlay, prioritizeInsights, StatComparison } = moduleContext.exports
 const teams = [{ id: 'blue', name: 'Northstar Quay' }, { id: 'red', name: 'Copper Vale' }]
 const card = { id: 'goal-e072', type: 'goal', minute: 29, team_id: 'blue', evidence_event_ids: ['e071', 'e072'], evidence: { score_before: { blue: 0, red: 0 }, score_after: { blue: 1, red: 0 }, player_id: 'blue_09' } }
 const overlay = { insight_id: card.id, match_minute: 29, headline: 'The opening goal', stat_line: 'Northstar Quay 1–0 Copper Vale', display_duration_ms: 8000, priority: 'high', evidence_event_ids: card.evidence_event_ids, source: 'template', synthetic: true }
@@ -124,4 +124,24 @@ test('optional team preference only changes ordering and preserves every factual
   assert.equal(JSON.stringify(list), before)
   assert.equal(order.find(item => item.id === 'away-mid'), list[1])
   assert.deepEqual(Array.from(moduleContext.exports.prioritizeInsights(list, null), item => item.id), ['home-late', 'away-mid', 'home-early'])
+})
+
+
+test('unavailable measured possession never presents assumed percentages or a comparison bar', () => {
+  const props = { label: 'Possession', left: 100, right: 0, suffix: '%', home: teams[0], away: teams[1] }
+  const unavailable = html(moduleContext.exports.StatComparison, { ...props, available: false })
+  assert.match(unavailable, /Unavailable/)
+  assert.match(unavailable, /initial-holder allocation is an assumption/)
+  assert.doesNotMatch(unavailable, /100%|stat-track|role="img"/)
+  assert.match(html(moduleContext.exports.StatComparison, props), /100%/)
+})
+
+test('analyst facts suppress assumed possession when canonical availability is false', () => {
+  const result = narrative()
+  result.evidence = { ...evidence, facts: [...evidence.facts, { id: 'possession_available', metric: 'possession_available', value: 0 }] }
+  result.selected_fact_ids = [...result.selected_fact_ids, 'possession_available']
+  const rendered = html(AnalystFacts, { narrative: result })
+  assert.match(rendered, /Unavailable/)
+  assert.doesNotMatch(rendered, /53%/)
+  assert.match(rendered, /Northstar Quay 1/)
 })

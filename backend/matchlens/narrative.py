@@ -3,7 +3,8 @@
 Foundry selects facts, interpretation and audience frames. It never authors the
 factual sentences: the server renders them from the canonical context. Injected
 clients are labelled as test provenance and never establish live Foundry use.
-This module is not wired into legacy endpoints until delivery phase 7.
+The public API uses this pipeline; provider selection and controlled rendering
+have distinct provenance.
 """
 
 from __future__ import annotations
@@ -13,37 +14,22 @@ import os
 import time
 from collections.abc import Callable
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .ai_schemas import ContextPacket, GenerationMetadata, NarrativeOutput, NarrativeSelection, NarrativeResult
 from .validation import validate_selection
+from .provider import ProviderFailure, request_json
 
-PROMPT_VERSION = "after90-bounded-1"
+PROMPT_VERSION = "after90-bounded-2"
 TIMEOUT_SECONDS = 3
 MAX_RESPONSE_BYTES = 64 * 1024
-AZURE_HOST_SUFFIXES = (".openai.azure.com", ".services.ai.azure.com", ".cognitiveservices.azure.com")
-
-
-class _NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, *_args: Any, **_kwargs: Any) -> None:
-        return None
-
 
 class GenerationFailure(ValueError):
     """Public reason codes contain no endpoint, key or raw service response."""
 
-
-def _endpoint_allowed(value: str) -> bool:
-    try:
-        url = urlsplit(value)
-        return bool(url.scheme == "https" and url.hostname
-                    and any(url.hostname.endswith(suffix) for suffix in AZURE_HOST_SUFFIXES)
-                    and url.port in (None, 443) and url.username is None and url.password is None
-                    and url.path == "/openai/v1/responses" and not url.query and not url.fragment)
-    except (ValueError, TypeError):
-        return False
+    def __init__(self, reason: str, *, attempted: bool = False, telemetry: dict | None = None):
+        self.attempted = attempted
+        self.telemetry = telemetry
+        super().__init__(reason)
 
 
 def selection_schema(packet: ContextPacket) -> dict:
@@ -71,8 +57,6 @@ def _call_foundry(payload: dict) -> Any:
     url, key, model = (os.getenv(name, "").strip() for name in ("FOUNDRY_RESPONSES_URL", "FOUNDRY_API_KEY", "FOUNDRY_MODEL"))
     if not all((url, key, model)):
         raise GenerationFailure("not_configured")
-    if not _endpoint_allowed(url):
-        raise GenerationFailure("invalid_endpoint")
     body = {
         "model": model,
         "input": [
@@ -90,26 +74,10 @@ def _call_foundry(payload: dict) -> Any:
         "max_output_tokens": 800,
         "store": False,
     }
-    request = Request(url, data=json.dumps(body).encode("utf-8"),
-                      headers={"Content-Type": "application/json", "api-key": key}, method="POST")
     try:
-        with build_opener(_NoRedirect()).open(request, timeout=TIMEOUT_SECONDS) as response:
-            raw = response.read(MAX_RESPONSE_BYTES + 1)
-        if len(raw) > MAX_RESPONSE_BYTES:
-            raise GenerationFailure("response_too_large")
-        return json.loads(raw)
-    except GenerationFailure:
-        raise
-    except TimeoutError as exc:
-        raise GenerationFailure("timeout") from exc
-    except HTTPError as exc:
-        raise GenerationFailure("http_error") from exc
-    except URLError as exc:
-        raise GenerationFailure("timeout" if isinstance(exc.reason, TimeoutError) else "transport_error") from exc
-    except (ValueError, UnicodeError) as exc:
-        raise GenerationFailure("malformed_response") from exc
-    except OSError as exc:
-        raise GenerationFailure("transport_error") from exc
+        return request_json(url, key, body, timeout=TIMEOUT_SECONDS, max_bytes=MAX_RESPONSE_BYTES)
+    except ProviderFailure as exc:
+        raise GenerationFailure(exc.reason, attempted=exc.attempted, telemetry=exc.telemetry) from exc
 
 
 def _selection_value(response: Any) -> Any:
@@ -163,11 +131,30 @@ def _score(value: Any, teams: dict[str, str]) -> str:
     return "–".join(str(value[team]) for team in teams)
 
 
+def _short_label(value: Any, limit: int = 64) -> str:
+    """Bound display labels while retaining their full form in canonical evidence."""
+    text = str(value).strip()
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+
+
+def _team_labels(teams: dict[str, str]) -> dict[str, str]:
+    labels = {}
+    for index, (team_id, name) in enumerate(teams.items(), 1):
+        labels[team_id] = name if len(name) <= 64 else _short_label(name, 52) + f" (team {index})"
+    # A shortened label could coincide with another actual team name. Keep the
+    # display unambiguous without altering names or references in the evidence.
+    if len(set(labels.values())) != len(labels):
+        labels = {team_id: _short_label(name, 52) + f" (team {index})"
+                  for index, (team_id, name) in enumerate(teams.items(), 1)}
+    return labels
+
+
 def render_narrative(packet: ContextPacket, selection: NarrativeSelection) -> NarrativeOutput:
     """Render factual text exclusively from selected canonical facts."""
     selection = validate_selection(selection.model_dump(mode="json"), packet)
     facts = {fact.id: fact for fact in packet.facts if fact.id in selection.selected_fact_ids}
-    team = packet.teams.get(packet.team_id or "", "The focal team")
+    display_teams = _team_labels(packet.teams)
+    team = display_teams.get(packet.team_id or "", "The focal team")
     code = selection.interpretation_code
     headline = "Recorded match insight"
     fan = analyst = ""
@@ -186,7 +173,7 @@ def render_narrative(packet: ContextPacket, selection: NarrativeSelection) -> Na
         if selection.fan_frame == "contextual":
             fan += f" The score changed from {before} to {after}."
         scorer = facts.get("scorer_name")
-        scorer_text = f" by {scorer.value}" if scorer else ""
+        scorer_text = f" by {_short_label(scorer.value)}" if scorer else ""
         analyst = f"At minute {packet.minute}, {team}'s goal{scorer_text} changed the score from {before} to {after}."
         if selection.analyst_frame == "comparison":
             analyst += f" This event means {team} {action}."
@@ -199,8 +186,8 @@ def render_narrative(packet: ContextPacket, selection: NarrativeSelection) -> Na
         headline = "A burst of recorded shots"
         fan = f"{team} recorded more shots in this spell."
         if selection.fan_frame == "contextual":
-            fan += f" The recent count is {own.value} against {other.value} for {packet.teams[other_id]}."
-        analyst = f"In minutes {window.start}–{window.end}, {team} recorded {own.value} shots and {packet.teams[other_id]} recorded {other.value}."
+            fan += f" The recent count is {own.value} against {other.value} for {display_teams[other_id]}."
+        analyst = f"In minutes {window.start}–{window.end}, {team} recorded {own.value} shots and {display_teams[other_id]} recorded {other.value}."
         if selection.analyst_frame == "comparison":
             analyst += " This compares shot volume; chance quality and tactical causes are unavailable."
     elif packet.insight_type == "possession_swing":
@@ -219,7 +206,7 @@ def render_narrative(packet: ContextPacket, selection: NarrativeSelection) -> Na
             analyst += f" The measured change is {delta.value} percentage points; this does not establish tactical dominance."
     elif packet.insight_type == "recap":
         final = _score(facts["final_score"].value, packet.teams)
-        names = list(packet.teams.values())
+        names = list(display_teams.values())
         headline = "The full-time story"
         fan = f"At full time, {names[0]} {final} {names[1]}."
         analyst = fan
@@ -244,7 +231,7 @@ def render_narrative(packet: ContextPacket, selection: NarrativeSelection) -> Na
                         "shot_surge": "a shot surge", "possession_swing": "a measured possession increase"}.get(moment.get("type"))
                 if moment.get("type") == "goal" and moment.get("winning_goal") is True:
                     kind = "the winning goal"
-                name = packet.teams.get(str(moment.get("team_id")))
+                name = display_teams.get(str(moment.get("team_id")))
                 minute = moment.get("minute")
                 if kind and name and type(minute) is int and 0 <= minute <= 90:
                     # Winning and equalizing goals receive priority, followed
@@ -260,6 +247,11 @@ def render_narrative(packet: ContextPacket, selection: NarrativeSelection) -> Na
         if pattern is not None and pattern not in fan_entries:
             fan_entries.append(pattern)
         analyst_entries = ranked[:8]
+        if pattern is not None and pattern not in analyst_entries:
+            # A bounded recap must retain at least one supported non-goal
+            # pattern even when goals fill every display slot. The ledger
+            # keeps the complete goal record and the omission notice below.
+            analyst_entries[-1:] = [pattern]
         def story_text(items):
             return "; ".join(item[4] for item in sorted(items, key=lambda item: (item[1], item[2])))
         if entries:
@@ -271,11 +263,21 @@ def render_narrative(packet: ContextPacket, selection: NarrativeSelection) -> Na
         else:
             fan += " No supported key moments were selected."
             analyst += " Evidence is limited; no supported key moments were selected."
+        availability = next((fact for fact in packet.facts if fact.id == "possession_available"), None)
+        if availability is not None and availability.value == 0:
+            analyst += " Measured possession is unavailable from the supplied event evidence."
+        differences = []
         for prefix, label, suffix in (("shots", "shots", ""), ("passes", "passes", ""), ("possession", "possession", "%")):
             pair = [facts.get(f"{prefix}_{team_id}") for team_id in packet.teams]
             if all(pair):
                 first, second = pair
                 analyst += f" {label.capitalize()}: {names[0]} {first.value}{suffix}, {names[1]} {second.value}{suffix}."
+                if selection.analyst_frame == "comparison":
+                    unit = " percentage points" if prefix == "possession" else ""
+                    differences.append(f"{label} {first.value - second.value:+}{unit}")
+        if differences:
+            analyst += f" Differences ({names[0]} minus {names[1]}): " + "; ".join(differences) + "."
+
     else:
         headline = "Limited match evidence"
         fan = "There is not enough supplied evidence to explain a match pattern."
@@ -302,10 +304,18 @@ def generate_narrative(packet: ContextPacket, client: Callable[[dict], Any] | No
     # Validate the canonical packet can be rendered before contacting a service.
     fallback = render_narrative(packet, selection)
     output = fallback
+    provider_telemetry = None
+    provider_attempted = False
     try:
         if client is None and not allow_live:
             raise GenerationFailure("offline")
-        response = client(_payload(packet)) if client is not None else _call_foundry(_payload(packet))
+        if client is not None:
+            response = client(_payload(packet))
+        else:
+            provider_result = _call_foundry(_payload(packet))
+            provider_attempted = True
+            provider_telemetry = provider_result.telemetry
+            response = provider_result.response
         candidate = validate_selection(_selection_value(response), packet)
         output = render_narrative(packet, candidate)
         selection, accepted = candidate, True
@@ -314,6 +324,10 @@ def generate_narrative(packet: ContextPacket, client: Callable[[dict], Any] | No
         else:
             source, reason, selection_source = "template", "injected_client", "injected"
     except GenerationFailure as exc:
+        if exc.attempted:
+            provider_attempted = True
+        if exc.telemetry is not None:
+            provider_telemetry = exc.telemetry
         known = {"not_configured", "invalid_endpoint", "response_too_large", "timeout", "http_error",
                  "transport_error", "malformed_response", "incomplete_response", "model_refusal", "offline"}
         reason = str(exc) if str(exc) in known else "invalid_selection"
@@ -324,7 +338,8 @@ def generate_narrative(packet: ContextPacket, client: Callable[[dict], Any] | No
         reason = "invalid_selection"
     metadata = GenerationMetadata(source=source, fallback_reason=reason,
                                   model_version=os.getenv("FOUNDRY_MODEL", "unconfigured") or "unconfigured",
-                                  prompt_version=PROMPT_VERSION, latency_ms=float((time.perf_counter() - start) * 1000))
+                                  prompt_version=PROMPT_VERSION, latency_ms=float((time.perf_counter() - start) * 1000),
+                                  provider=provider_telemetry, provider_attempted=provider_attempted)
     return NarrativeResult(**{
         **output.model_dump(mode="json"),
         "source": source,

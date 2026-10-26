@@ -416,5 +416,6 @@
         }
       }
     }
-  ]
+  ],
+  "possession_available": true
 }

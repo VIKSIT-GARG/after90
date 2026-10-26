@@ -56,7 +56,7 @@ Open `http://127.0.0.1:8000` and run `python3 scripts/smoke_deployment.py http:/
    `scripts/evaluate_ai.py`, `evaluate_integrated.py` and real browser tests cover
    deterministic logic, HTTP contracts and rendered interaction separately.
 
-The browser never receives a model key. Copy `.env.example` to a local `.env` only if configuring Foundry, and supply runtime secrets through the hosting environment. No real football feed, official league mark, or live player data is used. The optional Foundry path has unit tests with a stubbed endpoint but has **not** been verified against a live deployment in this workspace.
+The browser never receives a model key. Copy `.env.example` to a local `.env` only if configuring Foundry, `run.sh` explicitly loads that file for the backend without overriding existing process variables. Supply hosted runtime secrets through the hosting environment. No real football feed, official league mark, or live player data is used. The optional Foundry path has unit tests with a stubbed endpoint but has **not** been verified against a live deployment in this workspace.
 
 ## Project and release files
 
