@@ -6,11 +6,11 @@ const ts = require('typescript')
 const { renderToStaticMarkup } = require('react-dom/server')
 const React = require('react')
 // Exercise the production component and scoring without a second implementation.
-const source = fs.readFileSync('src/App.tsx', 'utf8').replace("import './App.css'", '') + '\nexport { MatchActivity, activityPoints, demoSnapshot }'
+const source = fs.readFileSync('src/App.tsx', 'utf8').replace("import './App.css'", '').replaceAll("import.meta.env.VITE_ENABLE_TEAM_FOCUS", "undefined") + '\nexport { MatchActivity, activityPoints, demoSnapshot, DEMO_EVENTS }'
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
 const context = { exports: {}, require }
 vm.runInNewContext(compiled, context)
-const { MatchActivity, activityPoints, demoSnapshot } = context.exports
+const { MatchActivity, activityPoints, demoSnapshot, DEMO_EVENTS } = context.exports
 const teams = [{ id: 'home', name: 'Home' }, { id: 'away', name: 'Away' }]
 const event = (minute, outcome = null, type = 'goal') => ({ id: `e${minute}`, minute, second: 0, type, outcome, team_id: 'home' })
 function render(minute, events = []) {
@@ -95,4 +95,37 @@ test('API seek retains selection and focus across delayed responses and resets o
     delete global.window
     delete global.document
   }
+})
+
+
+test('preview goal records link to distinct preceding same-player shots without double counting', () => {
+  const events = context.exports.DEMO_EVENTS
+  const byId = new Map(events.map(event => [event.id, event]))
+  const goals = events.filter(event => event.type === 'goal')
+  assert.equal(goals.length, 3)
+  const linked = new Set()
+  for (const goal of goals) {
+    const shot = byId.get(goal.related_event_id)
+    assert.ok(shot)
+    assert.equal(shot.type, 'shot')
+    assert.equal(shot.outcome, 'goal')
+    assert.equal(shot.team_id, goal.team_id)
+    assert.equal(shot.player_id, goal.player_id)
+    assert.equal(shot.minute, goal.minute)
+    assert.ok(shot.second < goal.second)
+    assert.equal(linked.has(shot.id), false)
+    linked.add(shot.id)
+    const snapshot = demoSnapshot(goal.minute)
+    const insight = snapshot.insights.find(item => item.id === 'insight-' + goal.id)
+    assert.ok(insight.evidence_event_ids.includes(shot.id))
+  }
+  const final = demoSnapshot(90)
+  assert.equal(final.stats.shots.northstar, 5)
+  assert.equal(final.stats.shots.copper, 2)
+  assert.equal(final.score.northstar, 2)
+  assert.equal(final.score.copper, 1)
+  const previous = demoSnapshot(28)
+  const opener = demoSnapshot(29)
+  assert.equal(opener.stats.shots.northstar - previous.stats.shots.northstar, 1)
+  assert.equal(opener.score.northstar - previous.score.northstar, 1)
 })

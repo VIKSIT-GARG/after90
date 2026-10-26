@@ -42,3 +42,10 @@ export type NarrativeResult = NarrativeOutput & {
   selection_accepted: boolean; selection: NarrativeSelection; metadata: GenerationMetadata
   validation: ValidationMetadata; evidence: ContextPacket
 }
+
+// Additive HTTP fields shared by insight and full-time recap responses.
+export type IntelligenceFields = {
+  narrative?: NarrativeResult; headline?: string; limitations?: string[]
+  metadata?: GenerationMetadata; overlay?: Overlay | null
+  as_of_minute?: number; cache_expires_in_seconds?: number
+}

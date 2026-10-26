@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {"type": "string"},
+    "environmentName": {"type": "string"},
+    "appName": {"type": "string"},
+    "containerImage": {"type": "string"},
+    "minReplicas": {"type": "int", "defaultValue": 1, "minValue": 0, "maxValue": 1},
+    "maxReplicas": {"type": "int", "defaultValue": 2, "minValue": 1, "maxValue": 2},
+    "registryServer": {"type": "string", "defaultValue": ""},
+    "registryIdentityId": {"type": "string", "defaultValue": ""},
+    "foundryResponsesUrl": {"type": "secureString", "defaultValue": ""},
+    "foundryModel": {"type": "secureString", "defaultValue": ""},
+    "foundryApiKey": {"type": "secureString", "defaultValue": ""}
+  },
+  "variables": {
+    "foundryEnabled": "[not(empty(parameters('foundryApiKey')))]",
+    "privateRegistryEnabled": "[not(empty(parameters('registryServer')))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2025-01-01",
+      "name": "[parameters('environmentName')]",
+      "location": "[parameters('location')]",
+      "tags": {"project": "After90", "data": "synthetic", "purpose": "hackathon-demo"},
+      "properties": {
+        "appLogsConfiguration": {"destination": "none"},
+        "workloadProfiles": [{"name": "Consumption", "workloadProfileType": "Consumption"}]
+      }
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2025-01-01",
+      "name": "[parameters('appName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": ["[resourceId('Microsoft.App/managedEnvironments', parameters('environmentName'))]"],
+      "identity": "[if(variables('privateRegistryEnabled'), createObject('type', 'UserAssigned', 'userAssignedIdentities', createObject(parameters('registryIdentityId'), createObject())), createObject('type', 'None'))]",
+      "tags": {"project": "After90", "data": "synthetic", "purpose": "hackathon-demo"},
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('environmentName'))]",
+        "workloadProfileName": "Consumption",
+        "configuration": {
+          "activeRevisionsMode": "Single",
+          "ingress": {
+            "external": true,
+            "allowInsecure": false,
+            "targetPort": 8000,
+            "transport": "auto"
+          },
+          "registries": "[if(variables('privateRegistryEnabled'), createArray(createObject('server', parameters('registryServer'), 'identity', parameters('registryIdentityId'))), createArray())]",
+          "secrets": "[if(variables('foundryEnabled'), createArray(createObject('name', 'foundry-api-key', 'value', parameters('foundryApiKey'))), createArray())]"
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "after90",
+              "image": "[parameters('containerImage')]",
+              "resources": {"cpu": 0.5, "memory": "1Gi"},
+              "env": "[if(variables('foundryEnabled'), createArray(createObject('name', 'FOUNDRY_RESPONSES_URL', 'value', parameters('foundryResponsesUrl')), createObject('name', 'FOUNDRY_MODEL', 'value', parameters('foundryModel')), createObject('name', 'FOUNDRY_API_KEY', 'secretRef', 'foundry-api-key')), createArray())]",
+              "probes": [
+                {"type": "Startup", "httpGet": {"path": "/api/health", "port": 8000, "scheme": "HTTP"}, "initialDelaySeconds": 3, "periodSeconds": 5, "timeoutSeconds": 2, "failureThreshold": 30},
+                {"type": "Readiness", "httpGet": {"path": "/api/health", "port": 8000, "scheme": "HTTP"}, "periodSeconds": 10, "timeoutSeconds": 2, "failureThreshold": 3},
+                {"type": "Liveness", "httpGet": {"path": "/api/health", "port": 8000, "scheme": "HTTP"}, "periodSeconds": 20, "timeoutSeconds": 2, "failureThreshold": 3}
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": "[parameters('minReplicas')]",
+            "maxReplicas": "[parameters('maxReplicas')]",
+            "rules": [{"name": "http", "http": {"metadata": {"concurrentRequests": "20"}}}]
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "publicUrl": {"type": "string", "value": "[concat('https://', reference(resourceId('Microsoft.App/containerApps', parameters('appName')), '2025-01-01').configuration.ingress.fqdn)]"}
+  }
+}

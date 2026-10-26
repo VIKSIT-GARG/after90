@@ -4,7 +4,7 @@ This is the implemented contract for the four-person work plan. Coordinate schem
 
 ## Core design
 
-The browser owns a simulated minute and requests a snapshot for that minute. The Python API reads a versioned, synthetic fixture and derives all facts from events at or before that minute. Insight rules are deterministic. AI receives a compact object of verified facts and writes wording only. The UI displays canonical evidence from the API beside the wording.
+The browser owns a simulated minute and requests a snapshot for that minute. The Python API reads a versioned, synthetic fixture and derives all facts from events at or before that minute. Insight rules are deterministic. AI receives a compact object of verified facts and selects approved evidence and framing. The UI displays canonical evidence from the API beside the wording.
 
 Implemented stack: React + TypeScript frontend; FastAPI backend; JSON fixture; pytest backend checks; Vite build and TypeScript check. A multi-stage Docker image serves the React build and API together. Azure Container Apps is the documented deployment target, pending account access and a cost decision.
 
@@ -78,14 +78,17 @@ The example values above are illustrative. The checked-in [minute-29 snapshot](s
 
 ## Explanation contract
 
-Input to the explanation adapter is `{insight_type, minute, mode, verified_facts, evidence_event_ids}`. Output is `{text, source}`. The API adds the canonical `evidence` object; the model cannot edit it.
+`context.py` builds canonical packets for available engine insights. The model
+returns a bounded NarrativeSelection: approved fact IDs, interpretation code and
+audience frames. `validation.py` requires complete factual support. The server
+renders paired Fan/Analyst sentences and retains canonical limitations.
 
-- Fan: one short sentence, everyday language; avoid unsupported causal claims.
-- Analyst: one or two sentences, explicit comparison/window where the evidence supports it.
-- Give the model no raw unvalidated feed and no instruction to infer unseen tactics or emotions.
-- Check generated text before display. The current conservative validator rejects numeric claims, unsupported names or event references, causal/comparative claims, and text about a different insight metric. Verified numbers remain in canonical evidence and deterministic templates. On failure or timeout, use a template.
-- If there are too few observations, say the evidence is limited. Avoid “momentum” as a fact unless the rule defines it operationally.
-- Recap uses final facts and selected insight evidence only; no invented match narrative.
+Public responses preserve text/mode/evidence/source and add the typed narrative,
+metadata, overlay and short cache-lifetime hint. Contradictory free prose is not
+accepted. A failed/unavailable provider returns a labelled template, and no model
+calculates the scoreboard or changes evidence. Full-time story packets include
+selected non-goal patterns as well as goals. See [AI_CONTRACT.md](AI_CONTRACT.md)
+and [API_V2.md](API_V2.md).
 
 ## Verification scenarios
 
@@ -103,18 +106,23 @@ Input to the explanation adapter is `{insight_type, minute, mode, verified_facts
 
 The backend has an optional adapter for the [Foundry Responses API](https://learn.microsoft.com/azure/foundry/openai/how-to/responses?tabs=rest), configured with `FOUNDRY_RESPONSES_URL`, `FOUNDRY_MODEL`, and `FOUNDRY_API_KEY`. The adapter is tested with an injected HTTP response but still needs a real deployment test. The container is prepared for [Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/get-started-existing-container-image); no Azure service is claimed as live until deployed and checked.
 
-## AI v1.0 staged service contract (October 24)
+## Integrated bounded narrative service (October 25)
 
-See [AI_CONTRACT.md](AI_CONTRACT.md) and [AI_DELIVERY.md](AI_DELIVERY.md).
-The Wave 1/2 modules introduce canonical time-bounded context packets, typed fact
-references, bounded narrative selection, paired server-rendered wording and a
-ranked story ledger. They do not yet replace the legacy HTTP explanation/recap
-endpoints. Phase 7 will integrate them with versioned caches and request recovery;
-Phase 8 will connect the richer UI and overlay. This additive boundary preserves
-the existing replay and is explicitly tested.
+The API now uses the Wave 1/2 context/narrative/story services; the old regex-based
+helper is retained only for historical tests, not the public HTTP path. See
+[API_V2.md](API_V2.md) for legacy-compatible fields plus paired narratives,
+metadata, limitations, overlays, story routes and `as_of_minute` semantics.
 
-The model selects approved facts and framing. Exact scores, counts, player/team
-attribution and outcome significance are rendered from verified server facts.
-Arbitrary model prose is rejected rather than being treated as proven by regex or
-JSON-schema compliance. Foundry selection, controlled rendering, injected tests,
-and deterministic fallback must be distinguishable in reported provenance.
+The model selects approved facts and frames. The server renders exact scores,
+counts, player/team attribution and outcome significance. No arbitrary model
+prose becomes trusted merely by passing JSON/regex checks. Bounded per-key
+single-flight caches share modes and use provider/fixture/prompt identity; real
+success and fallback lifetimes differ. Network calls do not hold a global cache
+lock. Budgets are per process and do not establish a global Azure spending cap.
+
+The frontend consumes these responses with source identity guards, abort checks,
+exact analyst fact rows, contextual fan wording, fallback refresh and a synced
+studio graphic preview. Optional team focus remains default-disabled.
+
+Real Foundry quality, Azure template acceptance/public hosting and account gates
+remain separately verified; local tests cannot close them.
