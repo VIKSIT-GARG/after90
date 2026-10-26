@@ -101,12 +101,18 @@ test('mode transitions hide stale content, refresh fallback, ignore aborted repl
     await resolve(retry, { ...explanation('analyst'), text: 'STALE ABORTED RESPONSE' })
     assert.doesNotMatch(document.body.textContent, /STALE ABORTED RESPONSE/)
     await resolve(freshFan, explanation())
-    await click(button('Local preview'))
-    assert.doesNotMatch(document.querySelector('.insights-panel').textContent, /Fan opening-goal story|Analyst exact/)
-    assert.equal(document.querySelector('[data-testid="studio-graphic"]'), null)
-    await click(document.querySelector('.insight-select'))
-    assert.match(document.querySelector('[data-testid="generation-notice"]').textContent, /Preview template/)
-    assert.match(document.querySelector('[data-testid="studio-graphic"]').textContent, /Local preview/)
+        // Backend-only mode: the obsolete Local Preview controls must not exist.
+    assert.equal(button('Local preview'), undefined)
+    assert.equal(button('Team API'), undefined)
+
+    // The latest valid Fan explanation remains visible.
+    assert.match(
+      document.querySelector('[data-testid="insight-explanation"]').textContent,
+      /Fan opening-goal story/
+    )
+
+    // Studio graphics continue to use verified API evidence.
+    assert.ok(document.querySelector('[data-testid="studio-graphic"]'))
   } finally {
     await React.act(async () => root.unmount())
     dom.window.close()

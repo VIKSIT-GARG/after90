@@ -20,62 +20,6 @@ function prioritizeInsights(insights: Insight[], teamId: string | null): Insight
   const latest = [...insights].reverse()
   return teamId ? [...latest.filter(item => item.team_id === teamId), ...latest.filter(item => item.team_id !== teamId)] : latest
 }
-// Preview mode uses clearly labelled fictional data and never pretends to call AI.
-const DEMO_TEAMS: Team[] = [{ id: 'northstar', name: 'Northstar Quay' }, { id: 'copper', name: 'Copper Vale' }]
-const DEMO_EVENTS: Event[] = [
-  { id: 'e01', minute: 4, second: 12, type: 'pass', team_id: 'northstar', player_id: 'N-08', outcome: 'completed', related_event_id: null },
-  { id: 'e02', minute: 11, second: 18, type: 'shot', team_id: 'northstar', player_id: 'N-09', outcome: 'saved', related_event_id: null },
-  { id: 'e03', minute: 19, second: 8, type: 'shot', team_id: 'copper', player_id: 'C-10', outcome: 'blocked', related_event_id: null },
-  { id: 'e04-shot', minute: 29, second: 20, type: 'shot', team_id: 'northstar', player_id: 'N-09', outcome: 'goal', related_event_id: null },
-  { id: 'e04', minute: 29, second: 21, type: 'goal', team_id: 'northstar', player_id: 'N-09', outcome: null, related_event_id: 'e04-shot' },
-  { id: 'e05', minute: 41, second: 11, type: 'shot', team_id: 'northstar', player_id: 'N-11', outcome: 'saved', related_event_id: null },
-  { id: 'e06-shot', minute: 57, second: 42, type: 'shot', team_id: 'copper', player_id: 'C-10', outcome: 'goal', related_event_id: null },
-  { id: 'e06', minute: 57, second: 43, type: 'goal', team_id: 'copper', player_id: 'C-10', outcome: null, related_event_id: 'e06-shot' },
-  { id: 'e07', minute: 76, second: 6, type: 'shot', team_id: 'northstar', player_id: 'N-09', outcome: 'saved', related_event_id: null },
-  { id: 'e08-shot', minute: 84, second: 36, type: 'shot', team_id: 'northstar', player_id: 'N-11', outcome: 'goal', related_event_id: null },
-  { id: 'e08', minute: 84, second: 37, type: 'goal', team_id: 'northstar', player_id: 'N-11', outcome: null, related_event_id: 'e08-shot' },
-]
-function demoSnapshot(minute: number): Snapshot {
-  const events = DEMO_EVENTS.filter(event => event.minute <= minute)
-  const homeGoals = events.filter(event => event.type === 'goal' && event.team_id === 'northstar').length
-  const awayGoals = events.filter(event => event.type === 'goal' && event.team_id === 'copper').length
-  const homeShots = events.filter(event => event.type === 'shot' && event.team_id === 'northstar').length
-  const awayShots = events.filter(event => event.type === 'shot' && event.team_id === 'copper').length
-  const possession = minute < 20 ? 55 : minute < 60 ? 63 : 58
-  const insights: Insight[] = events.filter(event => event.type === 'goal').map(event => ({
-    id: 'insight-' + event.id, type: 'goal', minute: event.minute, team_id: event.team_id,
-    evidence_event_ids: event.related_event_id ? [event.id, event.related_event_id] : [event.id], evidence: {
-      score_before: { northstar: events.filter(e => e.type === 'goal' && e.team_id === 'northstar' && e.minute < event.minute).length,
-        copper: events.filter(e => e.type === 'goal' && e.team_id === 'copper' && e.minute < event.minute).length },
-      score_after: { northstar: events.filter(e => e.type === 'goal' && e.team_id === 'northstar' && e.minute <= event.minute).length,
-        copper: events.filter(e => e.type === 'goal' && e.team_id === 'copper' && e.minute <= event.minute).length },
-      player_id: event.player_id,
-    }
-  }))
-  return { match_id: 'after90-local-preview', fixture_version: 'local-preview-1', synthetic: true, minute, teams: DEMO_TEAMS, possession_available: false,
-    score: { northstar: homeGoals, copper: awayGoals },
-    stats: { shots: { northstar: homeShots, copper: awayShots },
-      passes: { northstar: Math.floor(minute * 2.8), copper: Math.floor(minute * 2.1) },
-      possession_percent: { northstar: possession, copper: 100 - possession } },
-    recent_events: events.filter(event => event.minute > minute - 10), insights }
-}
-function demoExplanation(insight: Insight, mode: Mode): Explanation {
-  const before = insight.evidence.score_before as Pair
-  const after = insight.evidence.score_after as Pair
-  const team = DEMO_TEAMS.find(t => t.id === insight.team_id)?.name ?? insight.team_id
-  return { insight_id: insight.id, mode, source: 'template', evidence: insight.evidence, headline: 'A fictional goal',
-    overlay: { insight_id: insight.id, match_minute: insight.minute, headline: 'A fictional goal', stat_line: `${team} scored · ${after.northstar}–${after.copper}`, display_duration_ms: 8000, priority: 'high', evidence_event_ids: insight.evidence_event_ids, source: 'template', synthetic: true },
-    text: mode === 'fan'
-      ? `${team} scored in minute ${insight.minute}, changing the score from ${before.northstar}–${before.copper} to ${after.northstar}–${after.copper}. This is a sample explanation based on fictional events.`
-      : `Verified fictional goal at ${insight.minute}': ${team}. Score transition ${before.northstar}–${before.copper} → ${after.northstar}–${after.copper}; evidence event ${insight.evidence_event_ids.join(', ')}. Preview template, not an AI response.` }
-}
-function demoRecap(mode: Mode): Recap {
-  const final = demoSnapshot(90)
-  return { mode, final_score: final.score, stats: final.stats, possession_available: false, moment_ids: final.insights.map(i => i.id), source: 'template',
-    text: mode === 'fan' ? 'In this fictional match, Northstar Quay won 2–1 against Copper Vale. The deciding goal came in minute 84. This is a preview recap, not AI-generated commentary.'
-      : 'Synthetic fixture summary: Northstar Quay 2–1 Copper Vale. Goals at 29, 57 and 84 minutes. Figures are derived from the small local preview dataset, not the team’s full match simulation.' }
-}
-
 async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, { signal })
   if (!response.ok) throw new Error('Request failed (' + response.status + ')')
@@ -102,7 +46,7 @@ function windowText(value: unknown) {
 }
 
 // An explainable activity index, not xG, possession percentage, or an AI prediction.
-// Only events supplied by the active data source are scored.
+// Only events supplied by the backend API are scored.
 function activityPoints(event: Event): number {
   if (event.type === 'goal') return 8
   if (event.type === 'shot') return 4
@@ -205,7 +149,6 @@ function Evidence({ insight, teams }: { insight: Insight; teams: Team[] }) {
   </div>
 }
 
-
 type LoadState<T> = { key: string; value: T | null; error: string | null }
 type CacheEntry<T> = { value: T; expires: number }
 function cacheDuration(value: IntelligenceFields & { source: string }): number {
@@ -279,7 +222,6 @@ function StudioOverlay({ overlay, minute, preview }: { overlay: Overlay | null |
 }
 function App() {
   const [minute, setMinute] = useState(0)
-  const [previewMode, setPreviewMode] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<(typeof speeds)[number]>(1)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
@@ -305,14 +247,12 @@ function App() {
   useEffect(() => { if (minute === 90) setPlaying(false) }, [minute])
 
   useEffect(() => {
-    if (previewMode) { setSnapshot(demoSnapshot(minute)); setSnapshotError(null); setSnapshotLoading(false); return }
     const cached = snapshots.current.get(minute)
     if (cached) { setSnapshot(cached); setSnapshotError(null); setSnapshotLoading(false); return }
     const controller = new AbortController()
     setSnapshotLoading(true)
     setSnapshotError(null)
     request<Snapshot>(base + '?minute=' + minute, controller.signal).then(data => {
-      if (controller.signal.aborted) return
       if (!isSnapshot(data) || data.minute !== minute) throw new Error('Invalid match snapshot')
       snapshots.current.set(minute, data)
       setSnapshot(data)
@@ -324,16 +264,16 @@ function App() {
       setSnapshotLoading(false)
     })
     return () => controller.abort()
-  }, [minute, snapshotAttempt, previewMode])
+  }, [minute, snapshotAttempt])
 
-  const current = previewMode ? demoSnapshot(minute) : snapshot?.minute === minute ? snapshot : null
-  // Keep controls mounted while the next API snapshot loads; all stale details
-  // are hidden and the retained panel is explicitly labelled with its own minute.
-  const display = previewMode ? current : snapshot
-  const displayMinute = display?.minute ?? minute
-  const selected = current?.insights.find(insight => insight.id === selectedId)
-  const version = current?.fixture_version
-  const sourceKey = previewMode ? 'preview' : 'api'
+  const current = snapshot // Keep last confirmed API frame visible while the next minute loads.
+  const displayedMinute = current?.minute ?? minute
+  const updatingReplay = !!current && displayedMinute !== minute
+  const selected = current?.minute === minute ? current.insights.find(insight => insight.id === selectedId) : undefined
+  const version = current?.minute === minute ? current.fixture_version : undefined
+  const display = current
+  const displayMinute = displayedMinute
+  const sourceKey = 'api'
   useEffect(() => {
     if (display && preferredTeam && !display.teams.some(team => team.id === preferredTeam)) setPreferredTeam('')
   }, [display?.fixture_version, preferredTeam])
@@ -343,7 +283,7 @@ function App() {
   const explanationLoading = !!selected && !explanation && !explanationError
   useEffect(() => {
     if (!selected || !version || !explanationKey) return
-    if (previewMode) { setExplanationState({ key: explanationKey, value: demoExplanation(selected, mode), error: null }); return }
+
     const key = explanationKey
     const cached = explanations.current.get(key)
     if (cached && cached.expires > Date.now()) { setExplanationState({ key, value: cached.value, error: null }); return }
@@ -361,7 +301,7 @@ function App() {
       setExplanationState({ key, value: null, error: error instanceof Error ? error.message : 'Explanation could not be loaded' })
     })
     return () => controller.abort()
-  }, [selected?.id, version, mode, explanationAttempt, previewMode, explanationKey])
+  }, [selected?.id, version, mode, explanationAttempt, explanationKey])
 
   const recapKey = minute === 90 && version ? [sourceKey, version, mode, 'recap'].join(':') : null
   const recap = recapState?.key === recapKey ? recapState.value : null
@@ -369,7 +309,7 @@ function App() {
   const recapLoading = !!recapKey && !recap && !recapError
   useEffect(() => {
     if (!recapKey || !version) return
-    if (previewMode) { setRecapState({ key: recapKey, value: demoRecap(mode), error: null }); return }
+
     const key = recapKey
     const cached = recaps.current.get(key)
     if (cached && cached.expires > Date.now()) { setRecapState({ key, value: cached.value, error: null }); return }
@@ -387,21 +327,15 @@ function App() {
       setRecapState({ key, value: null, error: error instanceof Error ? error.message : 'Recap could not be loaded' })
     })
     return () => controller.abort()
-  }, [version, mode, recapAttempt, previewMode, recapKey])
+  }, [version, mode, recapAttempt, recapKey])
 
   function seek(target: number) { setPlaying(false); setMinute(Math.max(0, Math.min(90, target))) }
-  function changeSource(preview: boolean) {
-    setPlaying(false)
-    setSelectedId(null)
-    if (preview !== previewMode) { setSnapshot(null); setPreferredTeam('') }
-    setPreviewMode(preview)
-  }
   const teams = display?.teams ?? []
   const home = teams[0]
   const away = teams[1]
   const insightList = prioritizeInsights(display?.insights ?? [], TEAM_FOCUS_ENABLED ? preferredTeam : null)
   const eventList = [...(display?.recent_events ?? [])].reverse()
-  const candidateOverlay = current ? (selected ? explanation?.overlay : recap?.overlay) : null
+  const candidateOverlay = current?.minute === minute ? (selected ? explanation?.overlay : recap?.overlay) : null
   const overlay = candidateOverlay && (!selected || candidateOverlay.insight_id === selected.id) ? candidateOverlay : null
   return <div className="app-shell">
     <header className="site-header">
@@ -410,14 +344,15 @@ function App() {
       <span className="synthetic-label">Synthetic match data</span>
     </header>
     <main id="match" className="dashboard">
-      <div className="page-intro"><div><span className="eyebrow">THE FUTURE OF MATCH INTELLIGENCE</span><h1>Every moment. <span>Explained.</span></h1><p>Explore a fictional football match through evidence-backed insights, replay and personalized explanations.</p></div><div className="data-mode"><span className="mode-label">DATA SOURCE</span><div className="data-toggle" role="group" aria-label="Match data source"><button className={!previewMode ? 'active' : ''} aria-pressed={!previewMode} onClick={() => changeSource(false)}>Team API</button><button className={previewMode ? 'active' : ''} aria-pressed={previewMode} onClick={() => changeSource(true)}>Local preview</button></div><small>{previewMode ? 'Small sample dataset · template explanations · no live AI' : 'Verified fictional events from the match API'}</small></div></div>
+      <div className="page-intro"><div><span className="eyebrow">THE FUTURE OF MATCH INTELLIGENCE</span><h1>Every moment. <span>Explained.</span></h1><p>Explore a fictional football match through evidence-backed insights, replay and personalized explanations.</p></div></div>
       <section className="match-hero" aria-labelledby="match-title">
-        <div className="hero-top"><p id="match-title">MATCH CENTER <span className="hero-live-dot">●</span> {previewMode ? 'LOCAL PREVIEW' : 'API REPLAY'}</p><span>{current ? 'Minute ' + current.minute : 'Awaiting minute ' + minute}</span></div>
+        <div className="hero-top"><p id="match-title">MATCH CENTER <span className="hero-live-dot">●</span> API REPLAY</p><span>{current ? 'Fixture ' + current.fixture_version : 'Awaiting match data'}</span></div>
         {current ? <div className="scoreboard" aria-label={home.name + ' ' + current.score[home.id] + ', ' + away.name + ' ' + current.score[away.id]}>
           <div className="team"><span className="crest home-crest" aria-hidden="true">N</span><h1>{home.name}</h1><small>Home</small></div>
-          <div className="score-center"><div className="score"><span>{current.score[home.id]}</span><i>:</i><span>{current.score[away.id]}</span></div><span className="clock">{minute === 90 ? 'Full time' : String(minute).padStart(2, '0') + ':00'}</span></div>
+          <div className="score-center"><div className="score"><span>{current.score[home.id]}</span><i>:</i><span>{current.score[away.id]}</span></div><span className="clock">{displayedMinute === 90 ? 'Full time' : String(displayedMinute).padStart(2, '0') + ':00'}</span></div>
           <div className="team"><span className="crest away-crest" aria-hidden="true">C</span><h1>{away.name}</h1><small>Away</small></div>
         </div> : <div className="hero-state" role={snapshotError ? 'alert' : 'status'}><h1>{snapshotError ? 'Match data unavailable' : 'Loading match'}</h1><p>{snapshotError ? 'The match API could not be reached. Check the connection, then retry.' : 'Getting minute ' + minute + '.'}</p>{snapshotError && <button onClick={() => setSnapshotAttempt(n => n + 1)}>Retry match data</button>}</div>}
+        {updatingReplay && <p role="status" style={{ position: 'absolute', bottom: 12, right: 18, margin: 0, padding: '6px 10px', borderRadius: 20, background: 'rgba(8,35,63,.82)', color: '#fff', fontSize: 12 }}>Updating replay to {minute}' · showing {displayedMinute}'</p>}
         <div className="pitch-rule" aria-hidden="true" />
       </section>
       <section className="replay-panel" aria-labelledby="replay-title"><div className="replay-head"><div><h2 id="replay-title">Match replay <span className="section-spark">✦</span></h2><p>Jump to any match minute</p></div><strong>{minute}' <small>/ 90'</small></strong></div>
@@ -430,14 +365,14 @@ function App() {
           const right = display.stats[key][away.id] ?? 0
           return <StatComparison key={key} label={label} left={left} right={right} suffix={suffix} home={home} away={away} available={key !== 'possession_percent' || display.possession_available !== false} />
         })}</div></section>}
-      {display && <MatchActivity key={sourceKey + ':' + display.fixture_version} events={display.recent_events} teams={teams} minute={displayMinute} onSeek={seek} loading={!current} />}
+      {display && <MatchActivity key={display.fixture_version} events={display.recent_events} teams={teams} minute={displayMinute} onSeek={seek} loading={updatingReplay} />}
       {display && <>
         <div className="content-grid">
           <section className="insights-panel" aria-labelledby="insights-title" aria-busy={!current}><div className="section-head insight-head"><div><h2 id="insights-title">✦ Insight center</h2><p>{!current ? 'Updating replay · previous snapshot at minute ' + displayMinute : mode === 'fan' ? 'The match story in plain language' : 'Exact facts, comparisons and evidence windows'}</p></div><div className="mode-switch" role="group" aria-label="Explanation mode"><button aria-pressed={mode === 'fan'} className={mode === 'fan' ? 'active' : ''} onClick={() => setMode('fan')}>Fan</button><button aria-pressed={mode === 'analyst'} className={mode === 'analyst' ? 'active' : ''} onClick={() => setMode('analyst')}>Analyst</button></div></div>
             {TEAM_FOCUS_ENABLED && display && <div className="team-focus"><label htmlFor="team-focus">Prioritize a team</label><select id="team-focus" value={preferredTeam} onChange={event => setPreferredTeam(event.target.value)}><option value="">All teams · latest first</option>{teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}</select><small>Changes story order only. Facts and evidence stay the same.</small></div>}
-            {insightList.length === 0 ? <div className="empty-state"><strong>No insights yet</strong><p>Play or jump ahead to see evidence-backed moments.</p></div> : <div className="insight-list">{insightList.map(insight => <article className={'insight-card ' + (selectedId === insight.id ? 'selected' : '')} key={sourceKey + ':' + display.fixture_version + ':' + insight.id}><button className="insight-select" aria-expanded={selectedId === insight.id} aria-controls={'detail-' + insight.id} aria-disabled={!current} onClick={() => { if (current) setSelectedId(selectedId === insight.id ? null : insight.id) }}><span className={'insight-icon ' + insight.type} aria-hidden="true">{insight.type === 'goal' ? '●' : insight.type === 'shot_surge' ? '↗' : '↔'}</span><span className="insight-summary"><small>{insight.minute}' · {teams.find(team => team.id === insight.team_id)?.name ?? insight.team_id}</small><strong>{title(insight)}</strong><small>{insight.evidence_event_ids.length} supporting events</small></span><span className="open-icon" aria-hidden="true">{selectedId === insight.id ? '−' : '+'}</span></button>{selectedId === insight.id && <div className="insight-detail" id={'detail-' + insight.id}>
-              <div className="explanation" aria-live="polite" data-testid="insight-explanation">{!current || explanationLoading ? <p role="status">Loading {mode} explanation…</p> : explanationError ? <div role="alert"><p>The explanation could not be loaded. Verified evidence remains available.</p><button className="text-button" onClick={() => setExplanationAttempt(n => n + 1)}>Retry explanation</button></div> : explanation ? <>
-                {(explanation.headline ?? explanation.narrative?.headline) && <h3>{explanation.headline ?? explanation.narrative?.headline}</h3>}<p>{explanation.text}</p><GenerationNotice value={explanation} preview={previewMode} />{!previewMode && explanation.source === 'template' && <button className="text-button" onClick={() => setExplanationAttempt(n => n + 1)}>Refresh explanation</button>}
+            {insightList.length === 0 ? <div className="empty-state"><strong>No insights yet</strong><p>Play or jump ahead to see evidence-backed moments.</p></div> : <div className="insight-list">{insightList.map(insight => <article className={'insight-card ' + (selectedId === insight.id ? 'selected' : '')} key={sourceKey + ':' + display.fixture_version + ':' + insight.id}><button className="insight-select" aria-expanded={selectedId === insight.id} aria-controls={'detail-' + insight.id} aria-disabled={updatingReplay} onClick={() => { if (!updatingReplay) setSelectedId(selectedId === insight.id ? null : insight.id) }}><span className={'insight-icon ' + insight.type} aria-hidden="true">{insight.type === 'goal' ? '●' : insight.type === 'shot_surge' ? '↗' : '↔'}</span><span className="insight-summary"><small>{insight.minute}' · {teams.find(team => team.id === insight.team_id)?.name ?? insight.team_id}</small><strong>{title(insight)}</strong><small>{insight.evidence_event_ids.length} supporting events</small></span><span className="open-icon" aria-hidden="true">{selectedId === insight.id ? '−' : '+'}</span></button>{selectedId === insight.id && <div className="insight-detail" id={'detail-' + insight.id}>
+              <div className="explanation" aria-live="polite" data-testid="insight-explanation">{updatingReplay || explanationLoading ? <p role="status">Loading {mode} explanation…</p> : explanationError ? <div role="alert"><p>The explanation could not be loaded. Verified evidence remains available.</p><button className="text-button" onClick={() => setExplanationAttempt(n => n + 1)}>Retry explanation</button></div> : explanation ? <>
+                {(explanation.headline ?? explanation.narrative?.headline) && <h3>{explanation.headline ?? explanation.narrative?.headline}</h3>}<p>{explanation.text}</p><GenerationNotice value={explanation} preview={false} />{explanation.source === 'template' && <button className="text-button" onClick={() => setExplanationAttempt(n => n + 1)}>Refresh explanation</button>}
                 {mode === 'analyst' && explanation.narrative && <AnalystFacts narrative={explanation.narrative} />}
                 <Limitations values={explanation.limitations ?? explanation.narrative?.limitations ?? []} />
               </> : null}</div>
@@ -446,10 +381,10 @@ function App() {
           </section>
           <section className="events-panel" aria-labelledby="events-title"><div className="section-head"><h2 id="events-title">Match timeline</h2><p>{!current ? 'Previous snapshot · ' : ''}Latest events through minute {displayMinute}</p></div>{eventList.length === 0 ? <div className="empty-state"><strong>No recent recorded events</strong><p>Events appear as the replay advances.</p></div> : <ol className="event-list" tabIndex={0} aria-label="Recent recorded match events">{eventList.map(event => <li key={event.id} className={event.type === 'goal' ? 'goal-event' : ''}><time>{event.minute}'{String(event.second).padStart(2, '0')}″</time><span className="event-dot" aria-hidden="true" /><div><strong>{eventTitle(event)}</strong><p>{teams.find(team => team.id === event.team_id)?.name ?? event.team_id}{event.player_id ? ' · ' + event.player_id : ''}</p><small>{event.id}{event.related_event_id ? ' · linked shot ' + event.related_event_id : ''}</small></div></li>)}</ol>}</section>
         </div>
-        <StudioOverlay overlay={overlay} minute={minute} preview={previewMode} />
-        {minute === 90 && current && <section className="recap-panel" aria-labelledby="recap-title" data-testid="full-time-recap"><div className="recap-head"><div><span>90'</span><h2 id="recap-title">Full-time recap</h2></div><small>{mode === 'fan' ? 'Fan view' : 'Analyst view'}</small></div>{recapLoading ? <p role="status">Loading full-time recap…</p> : recapError ? <div role="alert"><p>The recap could not be loaded. Final match numbers remain available above.</p><button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Retry recap</button></div> : recap ? <><p className="recap-text">{recap.text}</p>{recap.possession_available === false && <p>Measured possession is unavailable: no possession-change events were recorded; initial-holder allocation is an assumption.</p>}<GenerationNotice value={recap} preview={previewMode} />{!previewMode && recap.source === 'template' && <button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Refresh recap</button>}{mode === 'analyst' && recap.narrative && <AnalystFacts narrative={recap.narrative} />}<Limitations values={recap.limitations ?? recap.narrative?.limitations ?? []} /><div className="recap-meta"><span>{recap.moment_ids.length ? 'Based on insights: ' + recap.moment_ids.join(', ') : 'Based on final match facts'}</span></div></> : null}</section>}
+        <StudioOverlay overlay={overlay} minute={minute} preview={false} />
+        {minute === 90 && current?.minute === 90 && <section className="recap-panel" aria-labelledby="recap-title" data-testid="full-time-recap"><div className="recap-head"><div><span>90'</span><h2 id="recap-title">Full-time recap</h2></div><small>{mode === 'fan' ? 'Fan view' : 'Analyst view'}</small></div>{recapLoading ? <p role="status">Loading full-time recap…</p> : recapError ? <div role="alert"><p>The recap could not be loaded. Final match numbers remain available above.</p><button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Retry recap</button></div> : recap ? <><p className="recap-text">{recap.text}</p>{recap.possession_available === false && <p>Measured possession is unavailable: no possession-change events were recorded; initial-holder allocation is an assumption.</p>}<GenerationNotice value={recap} preview={false} />{recap.source === 'template' && <button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Refresh recap</button>}{mode === 'analyst' && recap.narrative && <AnalystFacts narrative={recap.narrative} />}<Limitations values={recap.limitations ?? recap.narrative?.limitations ?? []} /><div className="recap-meta"><span>{recap.moment_ids.length ? 'Based on insights: ' + recap.moment_ids.join(', ') : 'Based on final match facts'}</span></div></> : null}</section>}
       </>}
-    </main><footer className="site-footer"><span>AFTER90 · Understand every moment</span><span>{previewMode ? 'Local fictional preview · no live AI' : 'Synthetic match data · Team API'}</span></footer>
+    </main><footer className="site-footer"><span>AFTER90 · Understand every moment</span><span>Synthetic match data · Team API</span></footer>
   </div>
 }
 export default App

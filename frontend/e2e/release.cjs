@@ -83,10 +83,19 @@ const artifactDir = process.env.AFTER90_ARTIFACTS || '/tmp/after90-browser-evide
       await audit(`mobile ${width}`)
     }
     await page.setViewportSize({ width: 1280, height: 900 })
-    await page.getByRole('button', { name: 'Local preview', exact: true }).click()
-    await goal(57)
-    assert.match(await page.getByTestId('generation-notice').first().textContent(), /preview|template/i)
-    await page.getByRole('button', { name: 'Team API', exact: true }).click()
+    // Backend-only replay: source-switching buttons were removed.
+    assert.equal(
+      await page.getByRole('button', { name: 'Local preview', exact: true }).count(),
+      0
+    )
+    assert.equal(
+      await page.getByRole('button', { name: 'Team API', exact: true }).count(),
+      0
+    )
+
+    // Verify that replay and explanations still work through the API.
+    await goal(62)
+    await page.getByTestId('generation-notice').first().waitFor()
     await goal(29)
     const seekControl = page.locator('.activity-seek')
     await seekControl.focus()
@@ -94,7 +103,7 @@ const artifactDir = process.env.AFTER90_ARTIFACTS || '/tmp/after90-browser-evide
     await page.waitForFunction(() => document.querySelector('.activity-panel')?.getAttribute('aria-busy') === 'false')
     assert.equal(await seekControl.evaluate(el => el === document.activeElement), true, 'activity seek lost keyboard focus')
     const violationCount = accessibility.reduce((sum, a) => sum + a.violations.length, 0)
-    const report = { status: errors.length || violationCount ? 'failed' : 'passed', browser: browser.version(), assertions: ['goal significance', 'mode facts', 'recap', 'source switching', 'overlay', 'keyboard focus', '320/390px overflow'], runtime_errors: errors, accessibility }
+    const report = { status: errors.length || violationCount ? 'failed' : 'passed', browser: browser.version(), assertions: ['goal significance', 'mode facts', 'recap', 'backend-only replay', 'overlay', 'keyboard focus', '320/390px overflow'], runtime_errors: errors, accessibility }
     await fs.writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2))
     assert.deepEqual(errors, [])
     assert.equal(violationCount, 0, 'accessibility violations; inspect report.json')
