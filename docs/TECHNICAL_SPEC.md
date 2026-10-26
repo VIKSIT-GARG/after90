@@ -102,3 +102,19 @@ Input to the explanation adapter is `{insight_type, minute, mode, verified_facts
 ## Microsoft integration note
 
 The backend has an optional adapter for the [Foundry Responses API](https://learn.microsoft.com/azure/foundry/openai/how-to/responses?tabs=rest), configured with `FOUNDRY_RESPONSES_URL`, `FOUNDRY_MODEL`, and `FOUNDRY_API_KEY`. The adapter is tested with an injected HTTP response but still needs a real deployment test. The container is prepared for [Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/get-started-existing-container-image); no Azure service is claimed as live until deployed and checked.
+
+## AI v1.0 staged service contract (October 24)
+
+See [AI_CONTRACT.md](AI_CONTRACT.md) and [AI_DELIVERY.md](AI_DELIVERY.md).
+The Wave 1/2 modules introduce canonical time-bounded context packets, typed fact
+references, bounded narrative selection, paired server-rendered wording and a
+ranked story ledger. They do not yet replace the legacy HTTP explanation/recap
+endpoints. Phase 7 will integrate them with versioned caches and request recovery;
+Phase 8 will connect the richer UI and overlay. This additive boundary preserves
+the existing replay and is explicitly tested.
+
+The model selects approved facts and framing. Exact scores, counts, player/team
+attribution and outcome significance are rendered from verified server facts.
+Arbitrary model prose is rejected rather than being treated as proven by regex or
+JSON-schema compliance. Foundry selection, controlled rendering, injected tests,
+and deterministic fallback must be distinguishable in reported provenance.
