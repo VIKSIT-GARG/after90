@@ -13,58 +13,6 @@ type Recap = { mode: Mode; text: string; final_score: Pair; stats: Stats; moment
 
 const base = '/api/matches/demo'
 const speeds = [1, 2, 4] as const
-// Preview mode uses clearly labelled fictional data and never pretends to call AI.
-const DEMO_TEAMS: Team[] = [{ id: 'northstar', name: 'Northstar Quay' }, { id: 'copper', name: 'Copper Vale' }]
-const DEMO_EVENTS: Event[] = [
-  { id: 'e01', minute: 4, second: 12, type: 'pass', team_id: 'northstar', player_id: 'N-08', outcome: 'completed', related_event_id: null },
-  { id: 'e02', minute: 11, second: 18, type: 'shot', team_id: 'northstar', player_id: 'N-09', outcome: 'saved', related_event_id: null },
-  { id: 'e03', minute: 19, second: 8, type: 'shot', team_id: 'copper', player_id: 'C-10', outcome: 'blocked', related_event_id: null },
-  { id: 'e04', minute: 29, second: 21, type: 'goal', team_id: 'northstar', player_id: 'N-09', outcome: null, related_event_id: 'e02' },
-  { id: 'e05', minute: 41, second: 11, type: 'shot', team_id: 'northstar', player_id: 'N-11', outcome: 'saved', related_event_id: null },
-  { id: 'e06', minute: 57, second: 43, type: 'goal', team_id: 'copper', player_id: 'C-10', outcome: null, related_event_id: 'e03' },
-  { id: 'e07', minute: 76, second: 6, type: 'shot', team_id: 'northstar', player_id: 'N-09', outcome: 'saved', related_event_id: null },
-  { id: 'e08', minute: 84, second: 37, type: 'goal', team_id: 'northstar', player_id: 'N-11', outcome: null, related_event_id: 'e07' },
-]
-function demoSnapshot(minute: number): Snapshot {
-  const events = DEMO_EVENTS.filter(event => event.minute <= minute)
-  const homeGoals = events.filter(event => event.type === 'goal' && event.team_id === 'northstar').length
-  const awayGoals = events.filter(event => event.type === 'goal' && event.team_id === 'copper').length
-  const homeShots = events.filter(event => ['shot', 'goal'].includes(event.type) && event.team_id === 'northstar').length
-  const awayShots = events.filter(event => ['shot', 'goal'].includes(event.type) && event.team_id === 'copper').length
-  const possession = minute < 20 ? 55 : minute < 60 ? 63 : 58
-  const insights: Insight[] = events.filter(event => event.type === 'goal').map(event => ({
-    id: 'insight-' + event.id, type: 'goal', minute: event.minute, team_id: event.team_id,
-    evidence_event_ids: [event.id], evidence: {
-      score_before: { northstar: events.filter(e => e.type === 'goal' && e.team_id === 'northstar' && e.minute < event.minute).length,
-        copper: events.filter(e => e.type === 'goal' && e.team_id === 'copper' && e.minute < event.minute).length },
-      score_after: { northstar: events.filter(e => e.type === 'goal' && e.team_id === 'northstar' && e.minute <= event.minute).length,
-        copper: events.filter(e => e.type === 'goal' && e.team_id === 'copper' && e.minute <= event.minute).length },
-      player_id: event.player_id,
-    }
-  }))
-  return { match_id: 'after90-local-preview', fixture_version: 'local-preview-1', synthetic: true, minute, teams: DEMO_TEAMS,
-    score: { northstar: homeGoals, copper: awayGoals },
-    stats: { shots: { northstar: homeShots, copper: awayShots },
-      passes: { northstar: Math.floor(minute * 2.8), copper: Math.floor(minute * 2.1) },
-      possession_percent: { northstar: possession, copper: 100 - possession } },
-    recent_events: events.filter(event => event.minute > minute - 10), insights }
-}
-function demoExplanation(insight: Insight, mode: Mode): Explanation {
-  const before = insight.evidence.score_before as Pair
-  const after = insight.evidence.score_after as Pair
-  const team = DEMO_TEAMS.find(t => t.id === insight.team_id)?.name ?? insight.team_id
-  return { insight_id: insight.id, mode, source: 'template', evidence: insight.evidence,
-    text: mode === 'fan'
-      ? `${team} scored in minute ${insight.minute}, changing the score from ${before.northstar}–${before.copper} to ${after.northstar}–${after.copper}. This is a sample explanation based on fictional events.`
-      : `Verified fictional goal at ${insight.minute}': ${team}. Score transition ${before.northstar}–${before.copper} → ${after.northstar}–${after.copper}; evidence event ${insight.evidence_event_ids.join(', ')}. Preview template, not an AI response.` }
-}
-function demoRecap(mode: Mode): Recap {
-  const final = demoSnapshot(90)
-  return { mode, final_score: final.score, stats: final.stats, moment_ids: final.insights.map(i => i.id), source: 'template',
-    text: mode === 'fan' ? 'In this fictional match, Northstar Quay won 2–1 against Copper Vale. The deciding goal came in minute 84. This is a preview recap, not AI-generated commentary.'
-      : 'Synthetic fixture summary: Northstar Quay 2–1 Copper Vale. Goals at 29, 57 and 84 minutes. Figures are derived from the small local preview dataset, not the team’s full match simulation.' }
-}
-
 async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, { signal })
   if (!response.ok) throw new Error('Request failed (' + response.status + ')')
@@ -91,7 +39,7 @@ function windowText(value: unknown) {
 }
 
 // An explainable activity index, not xG, possession percentage, or an AI prediction.
-// Only events supplied by the active data source are scored.
+// Only events supplied by the backend API are scored.
 function activityPoints(event: Event): number {
   if (event.type === 'goal') return 8
   if (event.type === 'shot') return 4
@@ -196,7 +144,6 @@ function Evidence({ insight, teams }: { insight: Insight; teams: Team[] }) {
 
 function App() {
   const [minute, setMinute] = useState(0)
-  const [previewMode, setPreviewMode] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<(typeof speeds)[number]>(1)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
@@ -225,7 +172,6 @@ function App() {
   useEffect(() => { if (minute === 90) setPlaying(false) }, [minute])
 
   useEffect(() => {
-    if (previewMode) { setSnapshot(demoSnapshot(minute)); setSnapshotError(null); setSnapshotLoading(false); return }
     const cached = snapshots.current.get(minute)
     if (cached) { setSnapshot(cached); setSnapshotError(null); setSnapshotLoading(false); return }
     const controller = new AbortController()
@@ -243,14 +189,15 @@ function App() {
       setSnapshotLoading(false)
     })
     return () => controller.abort()
-  }, [minute, snapshotAttempt, previewMode])
+  }, [minute, snapshotAttempt])
 
-  const current = previewMode ? demoSnapshot(minute) : snapshot?.minute === minute ? snapshot : null
-  const activitySnapshot = previewMode ? current : snapshot
+  const current = snapshot // Keep last confirmed API frame visible while the next minute loads.
+  const displayedMinute = current?.minute ?? minute
+  const updatingReplay = !!current && displayedMinute !== minute
+  const activitySnapshot = snapshot
   const selected = current?.insights.find(insight => insight.id === selectedId)
   const version = current?.fixture_version
   useEffect(() => {
-    if (previewMode && selected) { setExplanation(demoExplanation(selected, mode)); setExplanationError(null); setExplanationLoading(false); return }
     if (!selected || !version) { setExplanation(null); setExplanationLoading(false); return }
     const key = version + ':' + selected.id + ':' + mode
     const cached = explanations.current.get(key)
@@ -270,11 +217,10 @@ function App() {
       setExplanationLoading(false)
     })
     return () => controller.abort()
-  }, [selected?.id, version, mode, explanationAttempt, previewMode])
+  }, [selected?.id, version, mode, explanationAttempt])
 
   useEffect(() => {
-    if (previewMode && minute === 90) { setRecap(demoRecap(mode)); setRecapError(null); setRecapLoading(false); return }
-    if (minute !== 90 || !version) { setRecap(null); return }
+    if (minute !== 90 || current?.minute !== 90 || !version) { setRecap(null); return }
     const key = version + ':' + mode
     const cached = recaps.current.get(key)
     if (cached) { setRecap(cached); setRecapError(null); setRecapLoading(false); return }
@@ -293,7 +239,7 @@ function App() {
       setRecapLoading(false)
     })
     return () => controller.abort()
-  }, [minute, version, mode, recapAttempt, previewMode])
+  }, [minute, current?.minute, version, mode, recapAttempt])
 
   function seek(target: number) { setPlaying(false); setMinute(Math.max(0, Math.min(90, target))) }
   const teams = current?.teams ?? []
@@ -308,14 +254,15 @@ function App() {
       <span className="synthetic-label">Synthetic match data</span>
     </header>
     <main id="match" className="dashboard">
-      <div className="page-intro"><div><span className="eyebrow">THE FUTURE OF MATCH INTELLIGENCE</span><h1>Every moment. <span>Explained.</span></h1><p>Explore a fictional football match through evidence-backed insights, real-time replay and fan-friendly analysis.</p></div><div className="data-mode"><span className="mode-label">DATA SOURCE</span><div className="data-toggle" role="group" aria-label="Match data source"><button className={!previewMode ? 'active' : ''} aria-pressed={!previewMode} onClick={() => { setPlaying(false); setSelectedId(null); if (previewMode) setSnapshot(null); setPreviewMode(false) }}>Team API</button><button className={previewMode ? 'active' : ''} aria-pressed={previewMode} onClick={() => { setPlaying(false); setSelectedId(null); if (!previewMode) setSnapshot(null); setPreviewMode(true) }}>Local preview</button></div><small>{previewMode ? 'Small sample dataset · template explanations · not live AI' : 'Connected to your team’s match API when available'}</small></div></div>
+      <div className="page-intro"><div><span className="eyebrow">THE FUTURE OF MATCH INTELLIGENCE</span><h1>Every moment. <span>Explained.</span></h1><p>Explore a fictional football match through evidence-backed insights, real-time replay and fan-friendly analysis.</p></div></div>
       <section className="match-hero" aria-labelledby="match-title">
-        <div className="hero-top"><p id="match-title">MATCH CENTER <span className="hero-live-dot">●</span> {previewMode ? 'LOCAL PREVIEW' : 'API REPLAY'}</p><span>{current ? 'Fixture ' + current.fixture_version : 'Awaiting match data'}</span></div>
+        <div className="hero-top"><p id="match-title">MATCH CENTER <span className="hero-live-dot">●</span> API REPLAY</p><span>{current ? 'Fixture ' + current.fixture_version : 'Awaiting match data'}</span></div>
         {current ? <div className="scoreboard" aria-label={home.name + ' ' + current.score[home.id] + ', ' + away.name + ' ' + current.score[away.id]}>
           <div className="team"><span className="crest home-crest" aria-hidden="true">N</span><h1>{home.name}</h1><small>Home</small></div>
-          <div className="score-center"><div className="score"><span>{current.score[home.id]}</span><i>:</i><span>{current.score[away.id]}</span></div><span className="clock">{minute === 90 ? 'Full time' : String(minute).padStart(2, '0') + ':00'}</span></div>
+          <div className="score-center"><div className="score"><span>{current.score[home.id]}</span><i>:</i><span>{current.score[away.id]}</span></div><span className="clock">{displayedMinute === 90 ? 'Full time' : String(displayedMinute).padStart(2, '0') + ':00'}</span></div>
           <div className="team"><span className="crest away-crest" aria-hidden="true">C</span><h1>{away.name}</h1><small>Away</small></div>
         </div> : <div className="hero-state" role={snapshotError ? 'alert' : 'status'}><h1>{snapshotError ? 'Match data unavailable' : 'Loading match'}</h1><p>{snapshotError ? snapshotError + '. Check that the API is running, then retry.' : 'Getting minute ' + minute + '.'}</p>{snapshotError && <button onClick={() => setSnapshotAttempt(n => n + 1)}>Retry match data</button>}</div>}
+        {updatingReplay && <p role="status" style={{ position: 'absolute', bottom: 12, right: 18, margin: 0, padding: '6px 10px', borderRadius: 20, background: 'rgba(8,35,63,.82)', color: '#fff', fontSize: 12 }}>Updating replay to {minute}′ · showing {displayedMinute}′</p>}
         <div className="pitch-rule" aria-hidden="true" />
       </section>
       <section className="replay-panel" aria-labelledby="replay-title"><div className="replay-head"><div><h2 id="replay-title">Match replay <span className="section-spark">✦</span></h2><p>Jump to any match minute</p></div><strong>{minute}' <small>/ 90'</small></strong></div>
@@ -323,13 +270,13 @@ function App() {
         <div className="timeline-labels"><span>Kick off</span><span>Half time</span><span>Full time</span></div>
         <div className="transport"><div className="transport-buttons"><button className="primary-button" disabled={snapshotLoading || !!snapshotError} onClick={() => minute === 90 ? seek(0) : setPlaying(value => !value)} aria-label={minute === 90 ? 'Replay from start' : playing ? 'Pause replay' : 'Play replay'}>{minute === 90 ? '↺ Replay' : playing ? 'Ⅱ Pause' : '▶ Play'}</button><button onClick={() => seek(0)} disabled={minute === 0}>Reset</button><button onClick={() => seek(90)} disabled={minute === 90}>Jump to full time</button></div><div className="speed-group" aria-label="Replay speed"><span>Speed</span>{speeds.map(value => <button key={value} aria-pressed={speed === value} className={speed === value ? 'active' : ''} onClick={() => setSpeed(value)}>{value}×</button>)}</div></div>
       </section>
-      {snapshotError && !current && snapshot && <p className="inline-error" role="alert">Replay paused. {snapshotError}</p>}
-      {current && <section className="stats-panel" aria-labelledby="stats-title"><div className="section-head"><h2 id="stats-title">Match intelligence</h2><p>Through minute {minute}</p></div><div className="stats-grid">{([['Possession', 'possession_percent', '%'], ['Shots', 'shots', ''], ['Passes', 'passes', '']] as const).map(([label, key, suffix]) => {
+      {snapshotError && current && <p className="inline-error" role="alert">Replay paused at confirmed minute {displayedMinute}′. Unable to load minute {minute}′: {snapshotError}. <button type="button" onClick={() => setSnapshotAttempt(n => n + 1)}>Retry</button></p>}
+      {current && <section className="stats-panel" aria-labelledby="stats-title"><div className="section-head"><h2 id="stats-title">Match intelligence</h2><p>Through minute {displayedMinute}</p></div><div className="stats-grid">{([['Possession', 'possession_percent', '%'], ['Shots', 'shots', ''], ['Passes', 'passes', '']] as const).map(([label, key, suffix]) => {
           const left = current.stats[key][home.id] ?? 0
           const right = current.stats[key][away.id] ?? 0
           return <div className="stat" key={key}><div><strong>{left}{suffix}</strong><span>{label}</span><strong>{right}{suffix}</strong></div><div className="stat-track" role="img" aria-label={label + ': ' + home.name + ' ' + left + suffix + ', ' + away.name + ' ' + right + suffix}><span style={{ width: (left + right ? left / (left + right) * 100 : 50) + '%' }} /></div></div>
         })}</div></section>}
-      {activitySnapshot && <MatchActivity key={(previewMode ? 'preview:' : 'api:') + activitySnapshot.fixture_version} events={activitySnapshot.recent_events} teams={activitySnapshot.teams} minute={activitySnapshot.minute} onSeek={seek} loading={!current} />}
+      {activitySnapshot && <MatchActivity key={activitySnapshot.fixture_version} events={activitySnapshot.recent_events} teams={activitySnapshot.teams} minute={activitySnapshot.minute} onSeek={seek} loading={updatingReplay} />}
       {current && <>
         <div className="content-grid">
           <section className="insights-panel" aria-labelledby="insights-title"><div className="section-head insight-head"><div><h2 id="insights-title">✦ Insight center</h2><p>Every insight links to verified events</p></div><div className="mode-switch" role="group" aria-label="Explanation mode"><button aria-pressed={mode === 'fan'} className={mode === 'fan' ? 'active' : ''} onClick={() => setMode('fan')}>Fan</button><button aria-pressed={mode === 'analyst'} className={mode === 'analyst' ? 'active' : ''} onClick={() => setMode('analyst')}>Analyst</button></div></div>
@@ -337,9 +284,9 @@ function App() {
           </section>
           <section className="events-panel" aria-labelledby="events-title"><div className="section-head"><h2 id="events-title">Match timeline</h2><p>Latest events in the 10-minute window</p></div>{eventList.length === 0 ? <div className="empty-state"><strong>Waiting for kick off</strong><p>Events appear as the replay advances.</p></div> : <ol className="event-list">{eventList.map(event => <li key={event.id} className={event.type === 'goal' ? 'goal-event' : ''}><time>{event.minute}'{String(event.second).padStart(2, '0')}″</time><span className="event-dot" aria-hidden="true" /><div><strong>{eventTitle(event)}</strong><p>{teams.find(team => team.id === event.team_id)?.name ?? event.team_id}{event.player_id ? ' · ' + event.player_id : ''}</p><small>{event.id}{event.related_event_id ? ' · linked shot ' + event.related_event_id : ''}</small></div></li>)}</ol>}</section>
         </div>
-        {minute === 90 && <section className="recap-panel" aria-labelledby="recap-title"><div className="recap-head"><div><span>90'</span><h2 id="recap-title">Full-time recap</h2></div><small>{mode === 'fan' ? 'Fan view' : 'Analyst view'}</small></div>{recapLoading ? <p role="status">Loading full-time recap…</p> : recapError ? <div role="alert"><p>{recapError}. Final match numbers remain available above.</p><button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Retry recap</button></div> : recap ? <><p className="recap-text">{recap.text}</p><div className="recap-meta"><span className="source-tag">{source(recap.source)}</span><span>{recap.moment_ids.length ? 'Based on insights: ' + recap.moment_ids.join(', ') : 'Based on final match facts'}</span></div></> : null}</section>}
+        {minute === 90 && displayedMinute === 90 && <section className="recap-panel" aria-labelledby="recap-title"><div className="recap-head"><div><span>90'</span><h2 id="recap-title">Full-time recap</h2></div><small>{mode === 'fan' ? 'Fan view' : 'Analyst view'}</small></div>{recapLoading ? <p role="status">Loading full-time recap…</p> : recapError ? <div role="alert"><p>{recapError}. Final match numbers remain available above.</p><button className="text-button" onClick={() => setRecapAttempt(n => n + 1)}>Retry recap</button></div> : recap ? <><p className="recap-text">{recap.text}</p><div className="recap-meta"><span className="source-tag">{source(recap.source)}</span><span>{recap.moment_ids.length ? 'Based on insights: ' + recap.moment_ids.join(', ') : 'Based on final match facts'}</span></div></> : null}</section>}
       </>}
-    </main><footer className="site-footer"><span>AFTER90 · Understand every moment</span><span>{previewMode ? 'Local fictional preview · no live AI' : 'Synthetic match data · Team API'}</span></footer>
+    </main><footer className="site-footer"><span>AFTER90 · Understand every moment</span><span>Synthetic match data · Team API</span></footer>
   </div>
 }
 export default App
