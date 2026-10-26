@@ -118,7 +118,8 @@ def test_secure_parameters_are_not_argv_and_are_deleted(monkeypatch):
             return subprocess.CompletedProcess(args, 0, 'true\n', '')
         path = Path(args[args.index('--parameters') + 1].removeprefix('@'))
         observed['path'] = path
-        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+        if os.name != "nt":
+            assert stat.S_IMODE(path.stat().st_mode) == 0o600
         assert json.loads(path.read_text())['parameters']['foundryApiKey']['value'] == secret
         return subprocess.CompletedProcess(args, 0, 'https://after90-app.test.southindia.azurecontainerapps.io\n', '')
     monkeypatch.setattr(deploy, 'run_azure', invoke)
