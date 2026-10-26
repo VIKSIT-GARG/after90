@@ -203,3 +203,28 @@ live AI acceptance complete until AI-01 is closed. Address AI-03/04/05 before
 claiming robust arbitrary-fixture or real-time operation; measure AI-02/06 rather
 than inferring model value/cost from green offline tests. Review the remaining
 operational and low-priority items before a sustained public release.
+
+## Remediation re-audit — October 26, 2026
+
+The register above preserves the original findings against `c590301` for traceability.
+The follow-up implementation supersedes its OPEN statuses as follows:
+
+| IDs | Current status | Verification / required follow-up |
+| --- | --- | --- |
+| AI-01 | OPEN / BLOCKED | All-type and full-corpus live gates now reject partial or injected success. Real Foundry endpoint, deployment and credentials are still required to run them. |
+| AI-02 | OPEN / HUMAN ACCEPTANCE | Direct baseline comparison and blinded audience review tooling added. Text differences do not establish usefulness; representative live selections need human ratings. |
+| AI-03 | FIXED / offline verified | Unavailable possession omitted from recap percentage facts and prose; availability flag and UI qualification added. Legacy raw snapshot allocations remain for compatibility and must not be interpreted as observed when the flag is false. |
+| AI-04 | FIXED / offline verified | Goal retention and pattern allowance are independent; bounded analyst output retains pattern coverage in high-scoring fixtures. |
+| AI-05 | FIXED / offline verified | Parent deadline covers spawned transport startup, DNS and response work. Child terminated/reaped on expiry, with up to 100 ms bounded cleanup. Tested stalled native DNS and dripping responses; live network latency remains unmeasured. |
+| AI-06 | FIXED / offline verified | Optional sanitized provider identity, tokens, request duration and attempt metadata retained. Unknown usage stays null; configured deployment is distinct from returned provider model. No inferred cost or pure-inference claim. |
+| AI-07 | FIXED / offline verified | Atomic per-process fixed-window quota resets, default 200 attempts/hour. Health exposes remaining/reset status. Replicas have independent quotas; configure cloud spending controls separately. |
+| AI-08 | FIXED / offline verified | Evidence and comparison recap frames now produce meaningful distinct analyst renderings. |
+| AI-09 | FIXED / offline verified | Bounded, disambiguated display labels keep long accepted names renderable while canonical evidence remains unchanged. |
+| AI-10 | FIXED / offline verified | Explicit tested dotenv startup loader, process-variable precedence, atomic validation and sanitized failures. |
+
+Acceptance remains **not signed off as fully working live AI**. Offline regressions
+and a working fallback do not close AI-01 or AI-02. Run
+`scripts/check_ai_readiness.py`, then `scripts/evaluate_live_ai.py --live
+--require-foundry --output live-report.json --review-output blinded-review.jsonl`
+in the configured backend environment. Keep report mappings from reviewers,
+collect ratings, and review latency/fallback/usage before release approval.

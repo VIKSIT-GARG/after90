@@ -11,6 +11,7 @@ from backend.matchlens.cache import TTLCache
 from backend.matchlens.engine import snapshot_for_minute
 from backend.matchlens.fixture import load_fixture
 from backend.matchlens.narrative import generate_narrative
+from backend.matchlens.provider import ProviderResponse, response_telemetry
 from backend.matchlens.service import NarrativeService
 
 
@@ -101,10 +102,11 @@ def test_failure_cache_expires_and_can_recover(fixture, monkeypatch):
         if len(calls) == 1:
             raise TimeoutError("synthetic timeout")
         context = payload['context']
-        return {'selected_fact_ids': [fact['id'] for fact in context['facts']],
+        selection = {'selected_fact_ids': [fact['id'] for fact in context['facts']],
                 'interpretation_code': context['supported_interpretations'][0],
                 'fan_frame': 'contextual', 'analyst_frame': 'comparison',
                 'limitations': context['limitations']}
+        return ProviderResponse(selection, response_telemetry({}, {}, duration_ms=0))
     monkeypatch.setattr(narrative, '_call_foundry', transport)
     service = NarrativeService(cache=TTLCache(clock=lambda: now[0]), failure_ttl=2)
     first = service.insight(fixture, goal_ids(fixture)[0], 'fan', 29)

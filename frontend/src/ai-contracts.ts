@@ -25,9 +25,15 @@ export type NarrativeOutput = {
   headline: string; selected_fact_ids: string[]; interpretation_code: InterpretationCode
   fan_explanation: string; analyst_explanation: string; limitations: string[]
 }
+export type ProviderTelemetry = {
+  provider_response_id?: string | null; provider_request_id?: string | null; provider_model?: string | null
+  input_tokens?: number | null; output_tokens?: number | null; total_tokens?: number | null
+  provider_request_ms?: number | null
+}
 export type GenerationMetadata = {
   source: 'foundry' | 'template'; fallback_reason: string | null
   model_version: string; prompt_version: string; latency_ms: number
+  provider_attempted?: boolean; provider?: ProviderTelemetry | null
 }
 export type Overlay = {
   insight_id: string; match_minute: number; headline: string; stat_line: string
@@ -45,7 +51,7 @@ export type NarrativeResult = NarrativeOutput & {
 
 // Additive HTTP fields shared by insight and full-time recap responses.
 export type IntelligenceFields = {
-  narrative?: NarrativeResult; headline?: string; limitations?: string[]
+  possession_available?: boolean; narrative?: NarrativeResult; headline?: string; limitations?: string[]
   metadata?: GenerationMetadata; overlay?: Overlay | null
   as_of_minute?: number; cache_expires_in_seconds?: number
 }

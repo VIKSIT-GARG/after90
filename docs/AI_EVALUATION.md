@@ -61,3 +61,47 @@ readability, and recap coherence. Review the rendered desktop/mobile UI and
 screen-reader/focus behaviour separately: offline assertions cannot establish
 visual accessibility or real user value. Keep reports of injected checks, live
 model evaluation, and human review separate.
+
+## Uncached live coverage and paired baseline measurement
+
+```sh
+python scripts/evaluate_live_ai.py
+python scripts/evaluate_live_ai.py --live --require-foundry --output /tmp/after90-ai-report.json --review-output /tmp/after90-review.jsonl
+python -m pytest tests/test_live_ai_evaluation.py tests/test_ai_integration.py
+```
+
+The default is strictly offline even when credentials exist. `--live` explicitly
+permits provider calls. Each of the 12 golden insights and the recap is evaluated
+once directly, bypassing the service cache; each result contains both modes.
+`--require-foundry` requires `--live`, all contexts accepted by the actual
+provider, and coverage of goal, shot surge, possession swing and recap. Missing
+configuration, fallback in any context, and injected clients cannot close this
+gate. The HTTP evaluator separately requires both observed modes of every type
+but reports response counts which can include cached results.
+
+Each context also renders the deterministic fallback from the identical packet.
+The report compares selected facts, bounded selection, text similarity and length
+changes. These are editing statistics, **not evidence that AI is better**. The
+JSONL review export contains 26 stable blinded A/B pairs, canonical evidence and
+pending relevance, clarity and usefulness fields. Keep the full report, which
+contains the A/B mapping, away from reviewers. Empty/sparse fixtures remain usable
+without pretending assumption-derived possession is measured.
+
+To import human observations, supply `--ratings /path/ratings.json`: a JSON list
+of objects with `review_id`, `A`, `B`, and `preferred`. Each side must contain
+integer `relevance`, `clarity`, and `usefulness` ratings from 1 through 5;
+`preferred` is `A`, `B`, or `tie`. Unknown and duplicate IDs are rejected. Remove
+mode, evidence, text and pending wrapper fields from completed export rows when
+creating this ratings list. Ratings are reported as supplied, not independently
+verified; no numerical score automatically establishes factual safety or approval.
+
+Provider request telemetry includes model/response/request identifiers and token
+usage when returned. Missing usage remains null, never an invented zero. Usage
+sums include only observed actual-provider attempts, with observed sample counts.
+Provider request wall time includes transport and provider processing; pure model
+inference time is unavailable. Service time includes validation and rendering;
+direct total time adds evaluator overhead. No pricing or cost is inferred.
+
+Live provider acceptance and human usefulness remain **unverified until an
+authorized credentialed run and actual human review are retained**. Unit tests
+simulate transport only to verify gate behavior and cannot establish live proof.

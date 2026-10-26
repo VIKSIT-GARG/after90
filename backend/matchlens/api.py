@@ -25,13 +25,15 @@ def get_fixture() -> MatchFixture:
 @app.get("/api/health")
 def health(fixture: MatchFixture = Depends(get_fixture)) -> dict:
     return {"status": "ok", "fixture_version": fixture.fixture_version,
-            "synthetic": fixture.synthetic, "ai": health_configuration()}
+            "synthetic": fixture.synthetic, "ai": health_configuration(narrative_service)}
 
 
 @app.get("/api/matches/demo")
 def demo_snapshot(minute: int = Query(default=0, ge=0, le=90),
                   fixture: MatchFixture = Depends(get_fixture)) -> dict:
-    return snapshot_for_minute(fixture, minute)
+    snapshot = snapshot_for_minute(fixture, minute)
+    snapshot["possession_available"] = any(event.type == "possession_change" and event.minute <= minute for event in fixture.events)
+    return snapshot
 
 
 @app.get("/api/matches/demo/insights/{insight_id}")

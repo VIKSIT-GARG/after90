@@ -144,22 +144,21 @@ def test_mocked_transport_checks_request_contract_and_labels_success(packet, mon
     monkeypatch.setenv("FOUNDRY_MODEL", "test-deployment")
     monkeypatch.setenv("FOUNDRY_API_KEY", "secret-key")
     observed = {}
-    class Response:
-        def __enter__(self): return self
-        def __exit__(self, *_): return None
-        def read(self, count):
-            observed["read_limit"] = count
-            return json.dumps({"status": "completed", "output_text": json.dumps(selection(packet))}).encode()
-    class Opener:
-        def open(self, request, timeout):
-            observed["body"] = json.loads(request.data)
-            observed["timeout"] = timeout
-            return Response()
-    monkeypatch.setattr(narrative, "build_opener", lambda handler: Opener())
+    from backend.matchlens.provider import ProviderResponse
+    def request_json(url, key, body, *, timeout, max_bytes):
+        observed.update(body=body, timeout=timeout, max_bytes=max_bytes)
+        return ProviderResponse(
+            {"status": "completed", "output_text": json.dumps(selection(packet))},
+            {"provider_response_id": "resp-test", "provider_model": "returned-model",
+             "input_tokens": 40, "output_tokens": 20, "total_tokens": 60, "provider_request_ms": 1.2})
+    monkeypatch.setattr(narrative, "request_json", request_json)
     result = generate_narrative(packet)
     assert result["source"] == "foundry"
     assert result["selection_accepted"] is True
     assert result["metadata"]["fallback_reason"] is None
+    assert result["metadata"]["provider_attempted"] is True
+    assert result["metadata"]["provider"]["provider_model"] == "returned-model"
+    assert result["metadata"]["provider"]["total_tokens"] == 60
     assert observed["timeout"] == 3
     assert observed["body"]["store"] is False
     assert observed["body"]["text"]["format"]["strict"] is True

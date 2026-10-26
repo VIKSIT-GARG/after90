@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
+import time
 from collections.abc import Callable
 from threading import BoundedSemaphore, Lock
 
@@ -51,9 +53,11 @@ def _limit(name: str, default: int, maximum: int) -> int:
         return default
 
 
-def health_configuration() -> dict:
+def health_configuration(service: NarrativeService | None = None) -> dict:
+    active = narrative_service if service is None else service
     return {"configured": _configured(), "source_mode": "configured" if _configured() else "template",
             "prompt_version": narrative_module.PROMPT_VERSION,
+            "budget": active.budget_status(),
             "description": "Configuration presence is not proof of live Foundry access."}
 
 
@@ -79,10 +83,26 @@ def _overlay(packet: ContextPacket, result: dict) -> dict:
                    evidence_event_ids=list(packet.evidence_event_ids), source=result["source"]).model_dump(mode="json")
 
 
+def _budget_window() -> float:
+    """A bounded fixed window; invalid environment settings use the safe default."""
+    try:
+        value = float(os.getenv("AI_BUDGET_WINDOW_SECONDS", "3600"))
+        return value if math.isfinite(value) and 1 <= value <= 86400 else 3600.0
+    except ValueError:
+        return 3600.0
+
+
 class NarrativeService:
+    """Narrative generation with an independently replenishing process quota.
+
+    The fixed window begins at service creation and uses a monotonic clock.
+    This is an application safety limit, not an Azure or cross-replica budget.
+    """
     def __init__(self, *, cache: TTLCache | None = None, generator: Callable | None = None,
                  max_requests: int | None = None, max_concurrent: int | None = None,
-                 success_ttl: float = 600.0, failure_ttl: float = 15.0):
+                 success_ttl: float = 600.0, failure_ttl: float = 15.0,
+                 budget_window_seconds: float | None = None,
+                 clock: Callable[[], float] = time.monotonic):
         self.cache = cache if cache is not None else TTLCache()
         self.generator = generator
         self.max_requests = max_requests if max_requests is not None else _limit("AI_MAX_REQUESTS_PER_PROCESS", 200, 10000)
@@ -91,10 +111,45 @@ class NarrativeService:
             raise ValueError("request and concurrency limits must be nonnegative")
         if success_ttl <= 0 or failure_ttl <= 0:
             raise ValueError("cache lifetimes must be positive")
+        window = _budget_window() if budget_window_seconds is None else budget_window_seconds
+        if isinstance(window, bool) or not isinstance(window, (int, float)) or not math.isfinite(window) or window <= 0:
+            raise ValueError("budget window must be a finite positive number of seconds")
+        self.budget_window_seconds = float(window)
+        self._clock = clock
+        self._window_start = self._clock()
         self._slots = BoundedSemaphore(concurrency)
         self._counter_lock = Lock()
         self._requests_used = 0
         self.success_ttl, self.failure_ttl = success_ttl, failure_ttl
+
+    def _refresh_budget_locked(self, now: float) -> None:
+        elapsed = now - self._window_start
+        if elapsed >= self.budget_window_seconds:
+            # Retain fixed boundaries after idle intervals instead of making a
+            # request-dependent sliding window, and never accumulate credits.
+            periods = int(elapsed // self.budget_window_seconds)
+            self._window_start += periods * self.budget_window_seconds
+            self._requests_used = 0
+
+    def budget_status(self) -> dict:
+        """Return non-secret quota state; reading health never spends a request."""
+        with self._counter_lock:
+            now = self._clock()
+            self._refresh_budget_locked(now)
+            remaining = max(0, self.max_requests - self._requests_used)
+            reset_after = max(0.0, self._window_start + self.budget_window_seconds - now)
+            return {"scope": "per_process", "policy": "fixed_window", "limit": self.max_requests,
+                    "used": self._requests_used, "remaining": remaining, "exhausted": remaining == 0,
+                    "window_seconds": self.budget_window_seconds,
+                    "reset_after_seconds": round(reset_after, 3)}
+
+    def _cache_ttl(self, value: dict) -> float:
+        if value["metadata"]["fallback_reason"] == "budget_exhausted":
+            # A quota rejection must never survive into a replenished window.
+            # Zero TTL also avoids a race when fallback rendering crosses the
+            # window boundary; repeated rejected calls do not contact Foundry.
+            return 0.0
+        return self.success_ttl if value["source"] == "foundry" else self.failure_ttl
 
     def _fallback(self, packet: ContextPacket, reason: str) -> dict:
         result = narrative_module.generate_narrative(packet, allow_live=False)
@@ -111,9 +166,12 @@ class NarrativeService:
             return self._fallback(packet, "concurrency_limit")
         try:
             with self._counter_lock:
-                if self._requests_used >= self.max_requests:
-                    return self._fallback(packet, "budget_exhausted")
-                self._requests_used += 1
+                self._refresh_budget_locked(self._clock())
+                exhausted = self._requests_used >= self.max_requests
+                if not exhausted:
+                    self._requests_used += 1
+            if exhausted:
+                return self._fallback(packet, "budget_exhausted")
             return self._validated_generation(generator, packet)
         finally:
             self._slots.release()
@@ -132,7 +190,7 @@ class NarrativeService:
         key = (*_identity(fixture), packet.insight_id)
         result, remaining = self.cache.get_or_create(
             key, lambda: self._generate(packet),
-            ttl=lambda value: self.success_ttl if value["source"] == "foundry" else self.failure_ttl,
+            ttl=self._cache_ttl,
             fallback=lambda reason: self._fallback(packet, reason),
         )
         return NarrativeResult.model_validate(result).model_dump(mode="json"), remaining
@@ -174,6 +232,7 @@ class NarrativeService:
         facts = {fact.id: fact.value for fact in packet.facts}
         return {**self._fields(packet, result, mode, 90, remaining),
                 "final_score": final["score"], "stats": final["stats"],
+                "possession_available": any(event.type == "possession_change" for event in fixture.events),
                 "moment_ids": facts["selected_moment_ids"],
                 "evidence": packet.model_dump(mode="json")}
 

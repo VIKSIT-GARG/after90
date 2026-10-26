@@ -94,3 +94,17 @@ orchestration. The optional feature is a team-priority UI, not an agent swarm.
   blocking defect in API/cache, async UI/source guards or deployment preparation.
 - Live readiness remains **not configured / live not tested**; deployment has
   not been executed. These are explicit acceptance blockers, not test passes.
+
+## Audit remediation follow-up
+
+See `AI_FIX_PLAN.md` for parallel work ownership and dependency order, and the
+remediation section of `AI_AUDIT.md` for current finding statuses. Code fixes
+AI-03 through AI-10 are implemented with regression coverage. All-type live
+Foundry coverage (AI-01) and human editorial-value acceptance (AI-02) remain
+required; the new evaluator prepares evidence but cannot substitute for either.
+
+Provider transport runs in a disposable child process to enforce a total deadline
+including native DNS. Process startup consumes the request allowance. Budget
+limits replenish on a per-process fixed window (`AI_BUDGET_WINDOW_SECONDS`,
+default 3600); this is not a shared cloud quota. Snapshot/recap consumers must
+respect `possession_available=false` rather than display assumed raw percentages.
