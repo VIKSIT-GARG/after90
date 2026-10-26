@@ -1,8 +1,9 @@
 # After90 Waves 1 and 2 completion audit
 
-Audit date: October 24, 2026. These are the new twelve-phase AI delivery phases,
-not the original MVP plan or the frontend PR numbers. Code is additive and staged:
-the legacy HTTP explanation/recap endpoints are unchanged until phase 7.
+Wave 1/2 checkpoint: October 24, 2026. Current integrated status (October 25):
+[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md). These are the new twelve-phase AI delivery phases,
+not the original MVP plan or the frontend PR numbers. The checkpoint below records the initial staged work. Phase 7 has now integrated
+the bounded services into the public HTTP path; the old helper is test-only.
 
 ## Wave 1
 
@@ -50,8 +51,8 @@ to phases 5/9 and are not established by these test results.
 ## Wave 2
 
 Wave 2's offline service implementation was authorized while the external phase
-2 gate remained blocked. It is ready for later integration, not a claim of a live
-Foundry experience in the current UI.
+2 gate remained blocked. It has since been integrated by phases 7/8, but this is not a claim of live
+Foundry access in the current execution environment.
 
 ### Phase 4: evidence and context
 
@@ -79,8 +80,8 @@ Phase 4's service gate is complete.
 The model selects evidence and framing; wording is controlled server rendering.
 This deliberately does not claim unrestricted AI prose or perfect semantic
 validation of arbitrary text. Offline implementation is complete; live acceptance
-is **blocked by phase 2**. Legacy regex validation still exists only in the old API
-path; phase 7 must replace that path before the new safeguards protect the UI.
+is **blocked by phase 2**. Phase 7 now uses the new bounded service for the public API; the legacy regex
+helper remains only for historical helper tests.
 
 ### Phase 6: story ledger and recap inputs
 

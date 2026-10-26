@@ -1,4 +1,4 @@
-const { test } = require('node:test')
+﻿const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const vm = require('node:vm')
@@ -10,7 +10,7 @@ const { renderToStaticMarkup } = require('react-dom/server')
 // After90 now uses backend API data only; Local Preview was removed.
 const source =
   fs.readFileSync('src/App.tsx', 'utf8')
-    .replace("import './App.css'", '') +
+    .replace("import './App.css'", '').replaceAll('import.meta.env.VITE_ENABLE_TEAM_FOCUS', 'undefined') +
   '\nexport { MatchActivity, activityPoints }'
 
 const compiled = ts.transpileModule(source, {
