@@ -130,3 +130,29 @@ def test_high_scoring_fixture_evaluates_patterns_and_recap_without_starvation():
     recap = next(row for row in report['review_items'] if row['canonical_evidence']['insight_type'] == 'recap')
     summary = next(fact['value'] for fact in recap['canonical_evidence']['facts'] if fact['id'] == 'story_summary')
     assert {moment['type'] for moment in summary} == {'goal', 'shot_surge', 'possession_swing'}
+
+
+def test_ratings_cannot_attach_to_changed_rendered_pairs():
+    first = evaluator.run_live_evaluation()
+    repeat = evaluator.run_live_evaluation()
+    assert [row['review_id'] for row in first['review_items']] == [row['review_id'] for row in repeat['review_items']]
+
+    def changed_output(packet):
+        result = narrative.generate_narrative(packet, allow_live=False)
+        result['fan_explanation'] += ' Review variant.'
+        return result
+
+    changed = evaluator.run_live_evaluation(generator=changed_output)
+    assert changed['failed'] == 0
+    original_row = first['review_items'][0]
+    changed_row = changed['review_items'][0]
+    assert original_row['mode'] == changed_row['mode'] == 'fan'
+    assert original_row['review_id'] != changed_row['review_id']
+    # Unchanged Analyst pairs remain stable regardless of run provenance.
+    assert first['review_items'][1]['review_id'] == changed['review_items'][1]['review_id']
+    rating = {'review_id': original_row['review_id'],
+              'A': {'relevance': 3, 'clarity': 4, 'usefulness': 5},
+              'B': {'relevance': 4, 'clarity': 4, 'usefulness': 4}, 'preferred': 'A'}
+    assert evaluator.validate_ratings([rating], repeat['review_items'])['rated_pairs'] == 1
+    with pytest.raises(ValueError, match='unknown or duplicate'):
+        evaluator.validate_ratings([rating], changed['review_items'])

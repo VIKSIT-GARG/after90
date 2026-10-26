@@ -21,6 +21,7 @@ jobs:
       - run: python -m pytest
       - run: python scripts/evaluate_ai.py
       - run: python scripts/evaluate_integrated.py
+      - run: python scripts/evaluate_live_ai.py
 
   frontend:
     runs-on: ubuntu-latest

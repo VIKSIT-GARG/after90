@@ -48,3 +48,11 @@ contract alignment and the API handoff sample. Re-audit closes the eight code
 findings subject to the documented offline scope. Account-dependent live testing
 and human ratings remain the final sequential acceptance phase; they cannot run
 successfully before a configured deployment and reviewers are available.
+
+Verified combined implementation: 340 Python tests, 60 corpus cases, 8 integrated
+checks, 13 direct offline contexts, 14 frontend tests and production build passed.
+A fresh independent review exercised 50 targeted tests. Real Chromium 153 release
+checks passed: goal significance, mode facts, recap, source switching, overlay,
+keyboard focus and 320/390px overflow. Four axe states (desktop analyst goal,
+full-time fan, mobile 390 and mobile 320) had zero reported violations and no
+runtime errors. These browser checks exercise fallback, not live model quality.

@@ -91,7 +91,13 @@ def run_live_evaluation(*, live=False, generator=None, fixture=None):
             digest = hashlib.sha256((':'.join((packet.match_id, packet.fixture_version, packet.insight_id, mode))).encode()).hexdigest()
             candidate_side = 'A' if int(digest[0], 16) % 2 else 'B'
             pair = {candidate_side: candidate[field], 'B' if candidate_side == 'A' else 'A': baseline[field]}
-            review_id = digest[:20]
+            # Ratings identify the exact rendered pair and evidence, not just the
+            # context. A later live run can choose different facts/frames; it must
+            # never inherit observations about the earlier output silently.
+            review_content = {'mode': mode, 'pair': pair,
+                              'canonical_evidence': packet.model_dump(mode='json')}
+            review_id = hashlib.sha256(json.dumps(review_content, sort_keys=True,
+                                                   separators=(',', ':')).encode()).hexdigest()[:20]
             reviews.append({'review_id': review_id, 'mode': mode, **pair,
                             'canonical_evidence': packet.model_dump(mode='json'),
                             'ratings': {'A': {'relevance': None, 'clarity': None, 'usefulness': None},
