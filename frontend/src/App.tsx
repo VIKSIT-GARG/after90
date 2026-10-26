@@ -338,13 +338,14 @@ function App() {
   const candidateOverlay = current?.minute === minute ? (selected ? explanation?.overlay : recap?.overlay) : null
   const overlay = candidateOverlay && (!selected || candidateOverlay.insight_id === selected.id) ? candidateOverlay : null
   return <div className="app-shell">
+    <a className="skip-link" href="#match">Skip to match</a>
     <header className="site-header">
       <a href="#match" className="brand"><span className="brand-symbol" aria-hidden="true">◉</span><span>AFTER<span className="brand-accent">90</span></span></a>
       <nav className="site-nav" aria-label="Dashboard sections"><a href="#match">Match center</a><a href="#insights-title">Insights</a><a href="#activity-title">Activity</a><a href="#studio-title">Studio</a></nav>
       <span className="synthetic-label">Synthetic match data</span>
     </header>
     <main id="match" className="dashboard">
-      <div className="page-intro"><div><span className="eyebrow">THE FUTURE OF MATCH INTELLIGENCE</span><h1>Every moment. <span>Explained.</span></h1><p>Explore a fictional football match through evidence-backed insights, replay and personalized explanations.</p></div></div>
+      <div className="page-intro"><div><span className="eyebrow">THE FUTURE OF MATCH INTELLIGENCE</span><h1>Every moment. <span>Explained.</span></h1><p>Explore a fictional football match through evidence-backed insights, replay and personalized explanations.</p></div><aside className="intro-aside" aria-label="About this experience"><span className="intro-orbit" aria-hidden="true">↗</span><p><strong>Beyond the scoreline.</strong>A closer look at the game, made for you.</p></aside></div>
       <section className="match-hero" aria-labelledby="match-title">
         <div className="hero-top"><p id="match-title">MATCH CENTER <span className="hero-live-dot">●</span> API REPLAY</p><span>{current ? 'Fixture ' + current.fixture_version : 'Awaiting match data'}</span></div>
         {current ? <div className="scoreboard" aria-label={home.name + ' ' + current.score[home.id] + ', ' + away.name + ' ' + current.score[away.id]}>
