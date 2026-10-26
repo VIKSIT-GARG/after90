@@ -8,7 +8,7 @@ Built for **Inside the Game: Developer Hackathon — The Synthetic Match Insight
 
 **Synthetic match data:** every match, club, player and event shown is fictional. After90 does not redistribute real Premier League match data or use an official match feed.
 
-![After90 dashboard showing a fictional match and supporting insight evidence](docs/assets/dashboard.png)
+![After90 dashboard showing a fictional match and supporting insight evidence](docs/assets/match-desk.webp)
 
 [Source repository](https://github.com/VIKSIT-GARG/after90) · [Technical specification](docs/TECHNICAL_SPEC.md) · [Submission package](docs/SUBMISSION_PACKAGE.md) · [AI audit](docs/AI_AUDIT.md)
 
