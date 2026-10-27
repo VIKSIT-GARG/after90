@@ -71,6 +71,35 @@ def _restricted(question: str, fixture: MatchFixture, minute: int) -> bool:
     if any(int(a or b) != minute for a, b in requested):
         return True
     team_words = {word.lower() for team in fixture.teams for word in re.findall(r'[\w]+', team.name)}
+    # A metric-prefix question has an explicit subject phrase: "compare
+    # liverpool shots" must not silently become a comparison of our fixture.
+    # Unknown lowercase noun phrases are treated as unsupported, just like
+    # capitalized names. Generic fixture/metric wording remains usable. This
+    # guard is intentionally conservative; free paraphrases without a named
+    # metric, and familiar fixture-side predicates, still reach the
+    # bounded Foundry router.
+    metric = re.search(r"\b(?:shots?|attempts?|passes|passing|possession|score|goals?)\b", lower)
+    if metric:
+        prefix_words = set(re.findall(r"[a-z]+", lower[:metric.start()]))
+        neutral_prefix = {
+            'a', 'an', 'the', 'this', 'that', 'these', 'those', 'both', 'each', 'either',
+            'home', 'away', 'our', 'team', 'teams', 'side', 'sides', 'club', 'clubs', 'match',
+            'compare', 'comparison', 'show', 'give', 'list', 'tell', 'me', 'us', 'please',
+            'what', 'which', 'who', 'how', 'many', 'much', 'about', 'with', 'and', 'versus',
+            'vs', 'against', 'for', 'from', 'of', 'in', 'on', 'to', 'at', 'by', 'through',
+            'is', 'are', 'was', 'were', 'has', 'have', 'had', 'do', 'does', 'did', 'can',
+            'could', 'would', 'you', 'i', 'it', 'its', 'their', 'there', 's',
+            'more', 'fewer', 'most', 'least', 'higher', 'lower', 'all', 'any', 'total',
+            'totals', 'cumulative', 'recorded', 'number', 'count', 'counts', 'statistics',
+            'stats', 'overall', 'current', 'currently', 'so', 'far', 'today', 'now',
+            'want', 'know', 'see', 'explain', 'summarize', 'summarise', 'breakdown',
+            'get', 'getting', 'recording', 'record', 'making', 'made', 'taking', 'taken',
+            'attempting', 'accumulating', 'producing', 'racking', 'up', 'leading', 'lead',
+            'peppering', 'testing', 'bombarding', 'targeting',
+            'ahead', 'trailing', 'behind', 'registered', 'registering', 'tally', 'tallied',
+        }
+        if prefix_words - team_words - neutral_prefix:
+            return True
     known_players = [player.name.lower() for player in fixture.players if player.name]
     if any(name in lower for name in known_players):
         return True

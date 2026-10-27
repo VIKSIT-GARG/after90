@@ -129,7 +129,7 @@ See [API v0.2 contracts](docs/API_V2.md) and the [AI contract](docs/AI_CONTRACT.
 
 ## Verification
 
-The Foundry/Copilot implementation passed **482 Python tests**, **17 frontend tests**, **60 offline corpus cases**, **8 integrated checks**, **13 direct offline narrative contexts** and **7 Copilot smoke cases**, plus the production build. Real Chromium checks covered four replay states and four answer-open Copilot states at desktop and 390/320-pixel widths, with zero reported accessibility violations or runtime errors. These results establish the tested local behavior, not live model quality or an accessibility certification.
+The Foundry/Copilot implementation passed **493 Python tests**, **17 frontend tests**, **60 offline corpus cases**, **8 integrated checks**, **13 direct offline narrative contexts** and **7 Copilot smoke cases**, plus the production build. Real Chromium checks covered four replay states and four answer-open Copilot states at desktop and 390/320-pixel widths, with zero reported accessibility violations or runtime errors. These results establish the tested local behavior, not live model quality or an accessibility certification.
 
 ```sh
 make setup
