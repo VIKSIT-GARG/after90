@@ -22,6 +22,7 @@ jobs:
       - run: python scripts/evaluate_ai.py
       - run: python scripts/evaluate_integrated.py
       - run: python scripts/evaluate_live_ai.py
+      - run: python scripts/evaluate_copilot.py
 
   frontend:
     runs-on: ubuntu-latest

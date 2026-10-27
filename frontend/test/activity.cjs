@@ -22,7 +22,7 @@ const compiled = ts.transpileModule(source, {
 
 const context = {
   exports: {},
-  require,
+  require: request => request === './MatchCopilot' ? { __esModule: true, default: () => null } : require(request),
 }
 
 vm.runInNewContext(compiled, context)

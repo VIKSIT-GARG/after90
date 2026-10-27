@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {"type": "string"},
+    "resourceName": {"type": "string", "minLength": 2, "maxLength": 63},
+    "deploymentName": {"type": "string", "minLength": 1, "maxLength": 64},
+    "modelName": {"type": "string", "minLength": 1},
+    "modelVersion": {"type": "string", "minLength": 1},
+    "deploymentSku": {"type": "string", "allowedValues": ["Standard", "GlobalStandard", "DataZoneStandard"]},
+    "deploymentCapacity": {"type": "int", "minValue": 1, "maxValue": 10}
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2025-06-01",
+      "name": "[parameters('resourceName')]",
+      "location": "[parameters('location')]",
+      "kind": "OpenAI",
+      "sku": {"name": "S0"},
+      "tags": {"project": "After90", "data": "synthetic", "purpose": "hackathon-demo"},
+      "properties": {
+        "customSubDomainName": "[parameters('resourceName')]",
+        "publicNetworkAccess": "Enabled",
+        "disableLocalAuth": false,
+        "networkAcls": {"defaultAction": "Allow"}
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', parameters('resourceName'), parameters('deploymentName'))]",
+      "dependsOn": ["[resourceId('Microsoft.CognitiveServices/accounts', parameters('resourceName'))]"],
+      "sku": {"name": "[parameters('deploymentSku')]", "capacity": "[parameters('deploymentCapacity')]"},
+      "properties": {
+        "model": {"format": "OpenAI", "name": "[parameters('modelName')]", "version": "[parameters('modelVersion')]"},
+        "versionUpgradeOption": "NoAutoUpgrade"
+      }
+    }
+  ],
+  "outputs": {
+    "responsesUrl": {"type": "string", "value": "[format('https://{0}.openai.azure.com/openai/v1/responses', parameters('resourceName'))]"},
+    "deploymentName": {"type": "string", "value": "[parameters('deploymentName')]"}
+  }
+}

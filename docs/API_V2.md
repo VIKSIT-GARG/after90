@@ -93,3 +93,36 @@ remain separate release evidence.
 python -m pytest tests/test_api.py tests/test_ai_api.py
 python scripts/evaluate_integrated.py
 ```
+
+## Match Copilot
+
+`POST /api/matches/demo/copilot` accepts an explicit question request:
+
+```json
+{"question":"Compare the shots","minute":29,"mode":"analyst"}
+```
+
+Question length is 1–600 characters after nonblank validation; minute is an
+integer 0–90 and mode is `fan` or `analyst`. Extra fields are rejected. The response
+contains `question`, `answer`, `as_of_minute`, `topic`, `source`, `metadata`,
+`evidence_event_ids`, `facts` (`label`/`value` pairs), `limitations` and
+`synthetic:true`. `metadata` uses the existing generation contract.
+
+Topics are `score`, `shots`, `passes`, `possession`, `key_moments` or `unsupported`.
+Foundry can select a topic for a supported paraphrase; ordinary code supplies
+facts and final answer wording. Only an accepted real-provider routing request
+uses `source:foundry`. Rules and injected selectors use `source:template`.
+Configuration presence alone is not live proof. Narrative selection and question
+routing share process request/concurrency limits.
+
+Answers cover cumulative match-level totals or supported moments through the
+requested minute. References cannot include future events. Unavailable measured
+possession is qualified. Predictions, tactical causes, player analysis, foreign
+subjects and arbitrary sub-windows are outside this endpoint's supported scope.
+Evidence is capped at 200 references with an explicit omission note if necessary;
+totals still include all matching recorded events through the cutoff.
+
+The browser submits only on an explicit action, pauses playback for inspection,
+and clears/aborts stale requests when replay context or mode changes. No
+conversation history is retained. A cancelled browser request does not undo a
+provider attempt already started; its transport remains bounded by the deadline.

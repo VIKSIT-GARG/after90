@@ -124,3 +124,18 @@ ARM/deploy preparation; phase 11 adds a default-disabled team-priority option.
 See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for actual evidence and
 external service/account/submission gates. Public Azure and real Foundry access
 are not implied by local completion.
+
+## October 27: Foundry activation and Match Copilot
+
+User-requested extension after the core vertical slice: provision a reviewed
+Foundry-compatible model deployment and add explicit, evidence-grounded viewer
+questions. Match Copilot classifies a question into supported match-level topics,
+then ordinary code renders recorded facts at the selected replay cutoff. It uses
+the same request budget/concurrency limits as narrative selection. No live model
+connection, runtime multi-agent orchestration, arbitrary factual prose, voice
+service or cloud deployment is claimed until separately demonstrated.
+
+`setup_foundry.py` prepares resource/model deployment; `connect_foundry.py` saves
+private local connection settings and can run explicit live acceptance. See
+FOUNDRY_SETUP.md and WINNING_UPGRADE_PLAN.md for dependency order and remaining
+account-dependent gates.

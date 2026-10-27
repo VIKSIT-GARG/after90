@@ -22,6 +22,7 @@ After90 gives these audiences different views of the **same verified facts**. It
 
 - **Replay and investigate:** play, pause, change speed, reset or seek any minute of a deterministic 90-minute match. The dashboard uses the backend fixture throughout.
 - **See contextual moments:** opening goals, equalizers, lead changes, shot surges and possession swings carry their recorded context and supporting event references.
+- **Ask the match:** submit a question about the score, shots, passes, possession or key moments. A bounded Foundry router can interpret supported paraphrases; answers cite replay-safe facts and event references. Asking pauses playback so you can inspect the result.
 - **Choose your audience:** Fan mode keeps explanations concise; Analyst mode exposes exact facts, comparisons, windows and limitations.
 - **Explore match activity:** select five-minute intervals, compare an event-weighted activity index and inspect the recorded events. The index is explicitly not xG or a prediction.
 - **Follow the story to full time:** recaps retain decisive goals and supported non-goal patterns, including in high-scoring fixtures.
@@ -99,6 +100,10 @@ docker run --rm -p 127.0.0.1:8000:8000 after90:local
 
 The Docker build serves the frontend and API together. For cloud deployment, follow the [Azure release runbook](docs/AZURE_RELEASE.md); deployment is a separate account-authorized action.
 
+## Connect Microsoft Foundry
+
+Starting with an Azure account? Follow the [Foundry setup guide](docs/FOUNDRY_SETUP.md) to prepare a reviewed resource/model deployment. Then run `.venv/bin/python scripts/connect_foundry.py` and enter the key through its hidden local prompt. `--check --verify` explicitly runs narrative and Copilot live acceptance; it consumes model usage. Configuration presence and offline tests do not prove a live deployment.
+
 ## Try the demo
 
 1. Start the match, then seek to minute **28** to inspect the recorded shot-surge evidence.
@@ -112,6 +117,7 @@ The Docker build serves the frontend and API together. For cloud deployment, fol
 
 | Route | Purpose |
 | --- | --- |
+| `POST /api/matches/demo/copilot` | Explicit question, replay cutoff and audience mode; cited deterministic answer. |
 | `GET /api/health` | Health, synthetic fixture identity and non-secret AI/budget status. |
 | `GET /api/matches/demo?minute=29` | Event-derived snapshot at minute 0–90. |
 | `GET /api/matches/demo/insights/{id}?mode=fan&as_of_minute=29` | Explained insight available at the requested replay cutoff. |
@@ -123,7 +129,7 @@ See [API v0.2 contracts](docs/API_V2.md) and the [AI contract](docs/AI_CONTRACT.
 
 ## Verification
 
-The merged implementation passed **340 Python tests**, **13 frontend tests**, **60 offline corpus cases**, **8 integrated checks** and **13 direct offline contexts**, plus the production build. Real Chromium checks passed at desktop and 390/320-pixel widths, with zero reported accessibility violations in four checked states and zero runtime errors. These results establish the tested local behavior, not live model quality or an accessibility certification.
+The Foundry/Copilot implementation passed **493 Python tests**, **17 frontend tests**, **60 offline corpus cases**, **8 integrated checks**, **13 direct offline narrative contexts** and **7 Copilot smoke cases**, plus the production build. Real Chromium checks covered four replay states and four answer-open Copilot states at desktop and 390/320-pixel widths, with zero reported accessibility violations or runtime errors. These results establish the tested local behavior, not live model quality or an accessibility certification.
 
 ```sh
 make setup
@@ -131,6 +137,7 @@ make setup
 .venv/bin/python scripts/evaluate_ai.py
 .venv/bin/python scripts/evaluate_integrated.py
 .venv/bin/python scripts/evaluate_live_ai.py
+.venv/bin/python scripts/evaluate_copilot.py
 npm test --prefix frontend
 npm run build --prefix frontend
 (cd frontend && npx playwright install --with-deps chromium)

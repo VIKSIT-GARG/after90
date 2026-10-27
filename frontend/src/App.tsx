@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
+import MatchCopilot from './MatchCopilot'
 import type { ContextPacket, Fact, IntelligenceFields, NarrativeResult, Overlay } from './ai-contracts'
 
 type Mode = 'fan' | 'analyst'
@@ -366,6 +367,7 @@ function App() {
           const right = display.stats[key][away.id] ?? 0
           return <StatComparison key={key} label={label} left={left} right={right} suffix={suffix} home={home} away={away} available={key !== 'possession_percent' || display.possession_available !== false} />
         })}</div></section>}
+      {display && <MatchCopilot minute={minute} mode={mode} disabled={snapshotLoading || updatingReplay} onAsk={() => setPlaying(false)} />}
       {display && <MatchActivity key={display.fixture_version} events={display.recent_events} teams={teams} minute={displayMinute} onSeek={seek} loading={updatingReplay} />}
       {display && <>
         <div className="content-grid">

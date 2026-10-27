@@ -24,6 +24,14 @@ from .models import MatchFixture
 from .story import build_recap_context, build_story
 
 
+class ProviderOperationUnavailable(ValueError):
+    """A shared provider guard rejected work before any network attempt."""
+
+    def __init__(self, reason: str):
+        known = {"not_configured", "concurrency_limit", "budget_exhausted"}
+        super().__init__(reason if reason in known else "provider_unavailable")
+
+
 class InsightUnavailable(ValueError):
     pass
 
@@ -157,13 +165,17 @@ class NarrativeService:
         result["validation"]["reason"] = reason
         return NarrativeResult.model_validate(result).model_dump(mode="json")
 
-    def _generate(self, packet: ContextPacket) -> dict:
-        generator = self.generator or narrative_module.generate_narrative
-        # No provider configuration means no network request and no spent budget.
+    def provider_operation(self, operation: Callable):
+        """Run one provider operation under the shared process quota and slots.
+
+        Narrative selection and Match Copilot use the same budget. Configuration,
+        concurrency and quota rejections never invoke the operation. The caller
+        owns its bounded transport and maps these fixed rejection reasons.
+        """
         if not _configured():
-            return self._validated_generation(generator, packet)
+            raise ProviderOperationUnavailable("not_configured")
         if not self._slots.acquire(blocking=False):
-            return self._fallback(packet, "concurrency_limit")
+            raise ProviderOperationUnavailable("concurrency_limit")
         try:
             with self._counter_lock:
                 self._refresh_budget_locked(self._clock())
@@ -171,10 +183,20 @@ class NarrativeService:
                 if not exhausted:
                     self._requests_used += 1
             if exhausted:
-                return self._fallback(packet, "budget_exhausted")
-            return self._validated_generation(generator, packet)
+                raise ProviderOperationUnavailable("budget_exhausted")
+            return operation()
         finally:
             self._slots.release()
+
+    def _generate(self, packet: ContextPacket) -> dict:
+        generator = self.generator or narrative_module.generate_narrative
+        # Preserve offline/injected validation without spending model budget.
+        if not _configured():
+            return self._validated_generation(generator, packet)
+        try:
+            return self.provider_operation(lambda: self._validated_generation(generator, packet))
+        except ProviderOperationUnavailable as error:
+            return self._fallback(packet, str(error))
 
     def _validated_generation(self, generator: Callable, packet: ContextPacket) -> dict:
         try:
