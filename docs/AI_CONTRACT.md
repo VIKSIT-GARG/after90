@@ -154,3 +154,11 @@ fallback and retains the applicable failure reason.
 These structural checks do not prove live access or semantically validate arbitrary
 prose: only the server renderer constructs the wording, and live integration and
 quality evaluation remain separately evidenced gates.
+
+### Match Copilot extension
+
+Question routing uses its own bounded topic-only JSON schema; it does not accept
+model-authored answer facts or prose. See the Match Copilot section in API_V2.md.
+The live smoke corpus in `scripts/evaluate_copilot.py` is separate from narrative
+acceptance and cannot pass its Foundry requirement with injected clients. Shared
+quota and truthful provider provenance apply to both paths.

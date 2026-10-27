@@ -7,6 +7,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 
+from backend.matchlens.copilot import CopilotQuestion, answer_question
 from backend.matchlens.engine import snapshot_for_minute
 from backend.matchlens.fixture import load_fixture
 from backend.matchlens.models import MatchFixture
@@ -69,6 +70,11 @@ def match_overlay(minute: int = Query(default=0, ge=0, le=90), insight_id: str |
         return narrative_service.overlay(fixture, minute, insight_id)
     except InsightUnavailable as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/matches/demo/copilot")
+def match_copilot(request: CopilotQuestion, fixture: MatchFixture = Depends(get_fixture)) -> dict:
+    return answer_question(fixture, request, service=narrative_service)
 
 
 if (FRONTEND_DIST / "index.html").is_file():

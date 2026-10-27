@@ -9,7 +9,7 @@ const { renderToStaticMarkup } = require('react-dom/server')
 function appModule() {
   const source = fs.readFileSync('src/App.tsx', 'utf8').replace("import './App.css'", '').replaceAll("import.meta.env.VITE_ENABLE_TEAM_FOCUS", "undefined") + '\nexport { cacheDuration, GenerationNotice, AnalystFacts, StudioOverlay, prioritizeInsights, StatComparison }'
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
-  const context = { exports: {}, require }
+  const context = { exports: {}, require: request => request === './MatchCopilot' ? { __esModule: true, default: () => null } : require(request) }
   vm.runInNewContext(compiled, context)
   return context
 }
